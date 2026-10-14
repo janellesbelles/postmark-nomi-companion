@@ -53,6 +53,24 @@ class MailPipelineTests(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual(waiting, [])
 
+    def test_800_upgrade_preserves_started_chunks_and_repacks_unsent(self):
+        pipeline = self.pipeline()
+        pipeline.initialize()
+        fields, body = mail_pipeline.parse_letter_text(letter("word " * 300), "recipient-resident")
+        old_parts = len(mail_pipeline.format_nomi_messages(fields, body, 400))
+        state = pipeline.state.read()
+        state["letters"] = {
+            "started": {"status": "response_unknown", "fields": fields, "body": body, "nomi_parts_completed": 1, "nomi_parts": old_parts},
+            "unsent": {"status": "awaiting_nomi_confirmation", "fields": fields, "body": body, "nomi_parts": old_parts},
+        }
+        pipeline.state.write(state)
+        pipeline.upgrade_message_limit(800)
+        entries = pipeline.entries()
+        self.assertEqual(entries["started"]["nomi_message_limit"], 400)
+        self.assertEqual(entries["started"]["nomi_parts"], old_parts)
+        self.assertEqual(entries["unsent"]["nomi_message_limit"], 800)
+        self.assertLess(entries["unsent"]["nomi_parts"], old_parts)
+
     def test_initialization_can_import_existing_without_contacting_nomi(self):
         calls = []
         pipeline = self.pipeline(

@@ -17,11 +17,12 @@ spec.loader.exec_module(app)
 
 
 class LiveSessionTests(unittest.TestCase):
-    def run_session(self, approved=True, reply="SAY: My own words.", opening=False, fail_speech=False, fail_nomi=False):
+    def run_session(self, approved=True, reply="SAY: My own words.", opening=False, fail_speech=False, fail_nomi=False, heard_text="Hello!"):
         class Service:
             handle = "resident-one"
             name = "Nomi One"
             input_limit = 400
+            live_input_limit = 400
 
             def postmark_key(self):
                 return "fake-key"
@@ -86,7 +87,7 @@ class LiveSessionTests(unittest.TestCase):
             if listened == 1:
                 return {"latest": 100, "voices": [{"handle": "neighbor", "said": "Old room history", "at_ms": 100}]}
             return {"latest": 101, "where": {"place": "The garden"},
-                    "voices": [{"handle": "neighbor", "said": "Hello!", "at_ms": 101}]}
+                    "voices": [{"handle": "neighbor", "said": heard_text, "at_ms": 101}]}
 
         def speak(*args, **kwargs):
             if fail_speech:
@@ -151,6 +152,13 @@ class LiveSessionTests(unittest.TestCase):
         self.assertEqual(len(session.service.packets), 1)
         self.assertIn("Hello!", session.service.packets[0])
         self.assertNotIn("Old room history", session.service.packets[0])
+
+    def test_long_voice_only_proposes_public_reply_after_final_part(self):
+        session, decisions, posted = self.run_session(heard_text="A full speech. " * 60)
+        self.assertGreater(len(session.service.packets), 1)
+        self.assertEqual(decisions, ["My own words."])
+        self.assertEqual(posted.call_count, 1)
+        self.assertIn("FINAL:", session.service.packets[-1])
 
     def test_heard_ids_survive_restart_and_cursor_never_moves_back(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:

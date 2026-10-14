@@ -180,7 +180,7 @@ class MailPipeline:
         resident_handle,
         state_path,
         nomi_send,
-        message_limit=400,
+        message_limit=800,
         part_pause=4.0,
         discover=None,
         fetch=None,
@@ -210,6 +210,22 @@ class MailPipeline:
     def entries(self):
         return self.state.read().get("letters", {})
 
+    def upgrade_message_limit(self, limit):
+        """Repack unsent letters while preserving started delivery boundaries."""
+        limit = int(limit)
+        if limit not in (400, 800):
+            raise ValueError("Nomi message limit must be 400 or 800 characters.")
+        if not self.state.exists():
+            return
+        state = self.state.read()
+        for entry in state.get("letters", {}).values():
+            entry.setdefault("nomi_message_limit", self.message_limit)
+            if entry.get("status") == "awaiting_nomi_confirmation" and not entry.get("nomi_parts_completed") and not entry.get("active_nomi_part"):
+                entry["nomi_message_limit"] = limit
+                if entry.get("fields") and entry.get("body") is not None:
+                    entry["nomi_parts"] = len(format_nomi_messages(entry["fields"], entry["body"], limit))
+        self.state.write(state)
+
     def poll(self, *, discovered=None):
         state = self.state.read()
         for key, source in (self.discover() if discovered is None else discovered):
@@ -228,6 +244,7 @@ class MailPipeline:
                         "body": body,
                         "status": "awaiting_nomi_confirmation",
                         "nomi_parts": len(messages),
+                        "nomi_message_limit": self.message_limit,
                     }
                 )
             except Exception as error:
@@ -253,7 +270,7 @@ class MailPipeline:
             body = entry.get("body")
             if not fields or body is None:
                 fields, body = self.fetch(entry["source"])
-            messages = format_nomi_messages(fields, body, self.message_limit)
+            messages = format_nomi_messages(fields, body, int(entry.get("nomi_message_limit", self.message_limit)))
             previous_total = int(entry.get("nomi_parts", 0) or 0)
             if completed and previous_total != len(messages):
                 raise RuntimeError(
@@ -268,6 +285,7 @@ class MailPipeline:
                     "fields": fields,
                     "body": body,
                     "status": "contacting_nomi",
+                    "nomi_message_limit": int(entry.get("nomi_message_limit", self.message_limit)),
                     "nomi_parts": len(messages),
                 }
             )

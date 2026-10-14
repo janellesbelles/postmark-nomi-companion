@@ -1,5 +1,13 @@
 # Multi-resident update
 
+- Mail input now defaults to 800; changing a resident's limit repacks unsent letters and pins existing delivery checkpoints to their original chunk size.
+
+- Household keys persist across profile edits: blank or omitted secret fields preserve encrypted credentials, and the UI explicitly labels saved household keys. Settings patches preserve other resident options.
+
+- Live sessions now default to the full 800-character Nomi input allowance, independently of existing mail checkpoints; full 500-character map speeches fit without splitting. New resident mail settings also default to 800.
+
+- Shortened live chatter and opening prompts. Long individual voices now split into numbered parts without clipping; intermediate fragments cannot produce public replies before the final part.
+
 - Fixed live-history replay on restart: baseline each new session without forwarding the initial snapshot, persist timestamped voice IDs per resident, and prevent listening cursors from moving backward.
 
 - Added multiline Paste Nomi response to Live Map & Events. Nomi timeouts retain the current packet and remaining queue per resident across restarts, and block blind resends.

@@ -95,6 +95,23 @@ class ProfileIsolationTests(unittest.TestCase):
         reopened.activate_default_on_startup()
         self.assertEqual(reopened.active_id(), first)
 
+    def test_profile_edits_preserve_household_key_and_other_options(self):
+        profiles = ProfileStore(self.root)
+        profile = profiles.add(handle="resident-one", nomi_name="One", settings={
+            "encrypted_postmark_key": "dpapi-ciphertext", "encrypted_key": "nomi-ciphertext",
+            "live_input_limit": 800,
+        })
+        profiles.update(profile, nomi_name="Renamed", settings={"input_limit": 800})
+        reopened = ProfileStore(self.root)
+        settings = reopened.read_settings(profile)
+        self.assertEqual(settings["encrypted_postmark_key"], "dpapi-ciphertext")
+        self.assertEqual(settings["encrypted_key"], "nomi-ciphertext")
+        self.assertEqual(settings["live_input_limit"], 800)
+        reopened.write_settings(profile, {"encrypted_postmark_key": "", "encrypted_key": None})
+        self.assertEqual(reopened.read_settings(profile)["encrypted_postmark_key"], "dpapi-ciphertext")
+        reopened.write_settings(profile, {"encrypted_postmark_key": "replacement-ciphertext"})
+        self.assertEqual(reopened.read_settings(profile)["encrypted_postmark_key"], "replacement-ciphertext")
+
     def test_removal_can_archive_one_profile_without_touching_another(self):
         profiles = ProfileStore(self.root)
         first = profiles.add(handle="resident-one", nomi_name="One", settings={})

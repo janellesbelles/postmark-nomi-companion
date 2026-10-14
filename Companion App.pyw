@@ -117,7 +117,11 @@ class ResidentService:
 
     @property
     def input_limit(self):
-        return int(self.config.get("input_limit", 400))
+        return int(self.config.get("input_limit", 800))
+
+    @property
+    def live_input_limit(self):
+        return int(self.config.get("live_input_limit", 800))
 
     def nomi_key(self):
         return read_secret(self.config, "encrypted_key")
@@ -357,7 +361,7 @@ class LiveEventsWindow(tk.Toplevel):
         self.paste_live_btn.pack(anchor="w", pady=(0, 8))
         tk.Label(
             right,
-            text=f"Nomi packet: {service.input_limit} characters · Public speech: 500 characters max · No travel, RSVP, or spending.",
+            text=f"Nomi packet: {service.live_input_limit} characters · Public speech: 500 characters max · No travel, RSVP, or spending.",
             wraplength=570, justify="left", font=("Segoe UI", 9), fg=MUTED, bg=BG,
         ).pack(anchor="w")
         self.status = tk.StringVar(value="Off. Nothing is being listened to or posted.")
@@ -592,8 +596,8 @@ class LiveEventsWindow(tk.Toplevel):
                     voices, pending = pending, []
                 self.tasks.put(("heard", voices))
                 context = f"{self.session_context}; at {self.actual_place}" if self.actual_place else self.session_context
-                packets = request.get("packets") or ([event_bridge.opening_packet(self.service.input_limit, context=context)]
-                           if opening else event_bridge.chatter_packets(voices, self.service.input_limit, context=context))
+                packets = request.get("packets") or ([event_bridge.opening_packet(self.service.live_input_limit, context=context)]
+                           if opening else event_bridge.chatter_packets(voices, self.service.live_input_limit, context=context))
                 if not request.get("packets"):
                     request = {"status": "queued", "packets": packets, "context": context}
                     self.service.save_live_nomi(request)
@@ -616,6 +620,12 @@ class LiveEventsWindow(tk.Toplevel):
                     self.tasks.put(("can_ask", None))
                     if self.stop_event.is_set():
                         break
+                    if event_bridge.partial_chatter_packet(packet):
+                        self.tasks.put(("quiet", "Chatter continues in the next part; no public reply is proposed yet."))
+                        self.finish_live_reply(request)
+                        if recovery_only:
+                            break
+                        continue
                     try:
                         speech = event_bridge.speech_from_nomi(reply)
                     except ValueError as error:
@@ -659,7 +669,7 @@ class LiveEventsWindow(tk.Toplevel):
                     cursor = self.service.event_cursor()
                     new_voices = event_bridge.other_voices(result, handle)
                     if recovery_only:
-                        request["packets"] = request["packets"] + event_bridge.chatter_packets(new_voices, self.service.input_limit, context=context)
+                        request["packets"] = request["packets"] + event_bridge.chatter_packets(new_voices, self.service.live_input_limit, context=context)
                     else:
                         pending.extend(new_voices)
                     self.tasks.put(("spoke", speech))
@@ -1442,14 +1452,17 @@ class App(tk.Tk):
         tk.Label(body, text="Nomi", font=("Segoe UI", 9, "bold"), fg=MUTED, bg=CARD).pack(anchor="w", pady=(7, 3))
         nomi_combo = ttk.Combobox(body, textvariable=selected_nomi, values=list(choices), state="readonly")
         nomi_combo.pack(fill="x", ipady=5)
-        postmark_key = tk.StringVar(value=read_secret(current_settings, "encrypted_postmark_key"))
-        field("Postmark household key (needed for Live Events)", postmark_key, True)
+        postmark_key = tk.StringVar()
+        key_label = ("Postmark household key (saved; blank keeps it)"
+                     if current_settings.get("encrypted_postmark_key") else
+                     "Postmark household key (needed for Live Events)")
+        field(key_label, postmark_key, True)
         github_account = tk.StringVar(value=current_settings.get("github_account", ""))
         field("Expected GitHub account for outgoing mail (optional but recommended)", github_account)
         options = tk.Frame(body, bg=CARD)
         options.pack(fill="x", pady=10)
         tk.Label(options, text="Nomi message limit", font=("Segoe UI", 9, "bold"), fg=MUTED, bg=CARD).pack(side="left")
-        limit = tk.StringVar(value=str(current_settings.get("input_limit", 400)))
+        limit = tk.StringVar(value=str(current_settings.get("input_limit", 800)))
         ttk.Combobox(options, textvariable=limit, values=["400", "800"], state="readonly", width=6).pack(side="left", padx=10)
         tk.Label(options, text="800 requires a qualifying Nomi plan", font=("Segoe UI", 8), fg=MUTED, bg=CARD).pack(side="left")
         make_default = tk.BooleanVar(value=editing and self.profiles.index.get("default_profile_id") == profile_id)
@@ -1545,10 +1558,11 @@ class App(tk.Tk):
             }
             if postmark_key.get().strip():
                 settings["encrypted_postmark_key"] = crypt_key(postmark_key.get().strip())
-            if github_account.get().strip():
-                settings["github_account"] = github_account.get().strip()
+            settings["github_account"] = github_account.get().strip()
             try:
                 if editing:
+                    if int(current_settings.get("input_limit", 800)) != int(limit.get()):
+                        ResidentService(self.profiles, profile_id).pipeline().upgrade_message_limit(int(limit.get()))
                     self.profiles.update(
                         profile_id, handle=chosen_handle,
                         nomi_name=settings["nomi_name"], settings=settings,

@@ -41,6 +41,8 @@ Every resident's directory is a hard state boundary:
 
 Secrets are DPAPI-encrypted and never stored as plaintext. Encrypted values can normally be decrypted only by the same Windows account.
 
+App updates replace source files, not resident data. The Postmark household key stays saved in the resident's encrypted settings across updates and profile edits. Edit Resident shows **saved; blank keeps it**: leaving that field blank preserves the saved key, and entering a new key replaces it. Settings patches preserve omitted options and ignore blank encrypted-secret replacements.
+
 ## Migration
 
 On first launch, if the new app-data root does not exist, the app looks for an older companion data directory containing both `settings.json` and a hidden mail-state file. It copies that directory into the new generic root; the original legacy directory remains untouched as a rollback copy.
@@ -83,6 +85,8 @@ The Postmark handle becomes locked after its baseline exists. Create a new resid
 Choose a resident, then **Live Map & Events**. Select **Map hangout** for ordinary nearby conversation, or **Event** and a calendar entry for an event session. Both listen within earshot of the resident's actual map position. Selecting an event does not teleport, travel, or RSVP; use **Open the World** to position the resident yourself first.
 
 Click **Start listening** to relay nearby chatter to that resident's Nomi. Packets fit the resident's configured 400/800-character input limit (characters, not words). The Nomi responds in their own voice: `PASS` stays quiet, and `SAY:` proposes exact public words. Every public message needs human approval and shows the resident name and handle before posting. **Ask Nomi to say something** lets the resident propose an opening line even when nobody else is talking. Public speech is limited to 500 characters by Postmark.
+
+Live uses an 800-character Nomi input allowance by default, independently of existing mail-letter checkpoints. A full 500-character map speech fits alongside the compact wrapper in one message. If an installation needs the smaller live allowance, set its resident's non-secret `live_input_limit` to 400; otherwise it defaults to 800. A longer voice that cannot fit is delivered in numbered parts with a FINAL marker, preserving all of its text. Intermediate parts supply context only; public approval is offered after the final part. Existing mail-letter limits/checkpoints are preserved; new resident mail settings default to 800.
 
 **Pause** stops after the active request. Closing waits for the relay to stop before releasing the resident. Mailbox work and resident switching are blocked while the live window is open. Speech sends save an unknown-delivery record before contacting Postmark, then save confirmed status after receipt; uncertain sends pause without automatic retry. Previous unresolved speech is displayed on reopening. Back up `event-state.json` along with the rest of the resident directory.
 

@@ -177,7 +177,14 @@ class ProfileStore:
         return self._read(path) if path.exists() else {}
 
     def write_settings(self, profile_id, settings):
-        self._write(self.settings_path(profile_id), settings)
+        # Updates are patches. Omitted options and blank secret controls must
+        # never erase durable credentials when another option is edited.
+        preserved = self.read_settings(profile_id)
+        for key, value in dict(settings).items():
+            if key in {"encrypted_key", "encrypted_postmark_key"} and not value:
+                continue
+            preserved[key] = value
+        self._write(self.settings_path(profile_id), preserved)
 
     def add(self, *, handle, nomi_name, settings, make_default=False):
         handle = str(handle or "").strip()
