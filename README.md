@@ -92,6 +92,8 @@ Live uses an 800-character Nomi input allowance by default, independently of exi
 
 ### Recover a timed-out live Nomi response
 
+The live prompt explicitly requires responses to start with `SAY:` followed only by spoken words, or `PASS`. It gives a concrete example and forbids roleplay actions, narration, and preambles. Unmarked responses remain private and can be reviewed through Paste Nomi response.
+
 If Nomi times out, Live pauses and saves the current chatter packet, request ID, and remaining packet queue per resident. Reopening the app preserves this recovery. The app will not automatically resend the uncertain packet.
 
 1. Check the selected resident's normal Nomi chat for the response.

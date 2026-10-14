@@ -1,5 +1,7 @@
 # Multi-resident update
 
+- Strengthened the SAY/PASS format instructions for live chatter and opening lines, with an explicit prefix requirement, example, and no-actions/narration rule; full 500-character map speeches still fit the default 800-character input.
+
 - Live Nomi response approval now uses an always-on-top popup with a scrollable exact-text preview and explicit Approve & speak / Keep private buttons. Closing or Escape keeps the response private.
 
 - Fixed the Live Paste Nomi response dialog hiding its Save/Paste/Cancel buttons: reserved a fixed action row, made the text area shrinkable and scrollable, and verified controls at default/minimum window sizes.

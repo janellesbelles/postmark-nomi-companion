@@ -59,8 +59,8 @@ class BridgeSafetyTests(unittest.TestCase):
 
     def test_short_wrapper_leaves_room_for_speech(self):
         packet = bridge.chatter_packets([{"handle": "speaker", "said": "hello"}], 400)[0]
-        self.assertLess(len(packet) - len("speaker: hello"), 100)
-        self.assertLess(len(bridge.opening_packet(400)), 200)
+        self.assertLess(len(packet) - len("speaker: hello"), 230)
+        self.assertLess(len(bridge.opening_packet(400)), 300)
 
     def test_full_map_speech_fits_800_with_scene(self):
         said = "x" * 500
