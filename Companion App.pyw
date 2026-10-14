@@ -227,8 +227,24 @@ class ResidentService:
         if not isinstance(latest, (int, float)):
             return
         state = self.live_state()
-        state["latest"] = latest
+        old = state.get("latest")
+        state["latest"] = max(old, latest) if isinstance(old, (int, float)) else latest
         mail_pipeline.AtomicState(self.event_state_path).write(state)
+
+    def accept_live_chatter(self, result, *, baseline=False):
+        state = self.live_state()
+        fresh, seen = event_bridge.remember_voices(result, list(state.get("heard_ids") or []), baseline=baseline)
+        old_cursor = state.get("latest")
+        if isinstance(old_cursor, (int, float)):
+            fresh["voices"] = [voice for voice in fresh.get("voices", [])
+                               if not isinstance(voice.get("at_ms"), (int, float)) or voice["at_ms"] > old_cursor]
+        state["heard_ids"] = seen
+        latest = result.get("latest")
+        if isinstance(latest, (int, float)):
+            old = state.get("latest")
+            state["latest"] = max(old, latest) if isinstance(old, (int, float)) else latest
+        mail_pipeline.AtomicState(self.event_state_path).write(state)
+        return fresh
 
     def live_state(self):
         if self.event_state_path.exists():
@@ -528,6 +544,18 @@ class LiveEventsWindow(tk.Toplevel):
         pending = []
         last_spoke_at = 0.0
         try:
+            initial = self.service.live_state()
+            if (initial.get("speech") or {}).get("status") == "unknown":
+                raise RuntimeError("Public delivery is unknown. Check the World before continuing.")
+            if (initial.get("nomi") or {}).get("status") in {"awaiting_reply", "response_unknown"}:
+                raise RuntimeError("Nomi delivery is unknown. Check normal chat and paste the response.")
+            if not recovery_only:
+                # A new session starts at the present room boundary. Never feed
+                # the server's initial history snapshot back to Nomi.
+                baseline = event_bridge.listen(key, handle, since=cursor, wait=1)
+                self.service.accept_live_chatter(baseline, baseline=True)
+                cursor = self.service.event_cursor()
+                self.tasks.put(("status", "Listening from now. Earlier room history was skipped."))
             while not self.stop_event.is_set():
                 saved = self.service.live_state()
                 if (saved.get("speech") or {}).get("status") == "unknown":
@@ -552,8 +580,8 @@ class LiveEventsWindow(tk.Toplevel):
                     if place and place != self.actual_place:
                         self.actual_place = place
                         self.tasks.put(("place", place))
-                    cursor = heard.get("latest", cursor)
-                    self.service.save_event_cursor(cursor)
+                    heard = self.service.accept_live_chatter(heard)
+                    cursor = self.service.event_cursor()
                     pending.extend(event_bridge.other_voices(heard, handle))
                     if not pending:
                         self.tasks.put(("status", "Listening. The room is quiet."))
@@ -627,8 +655,8 @@ class LiveEventsWindow(tk.Toplevel):
                     proposal["status"] = "confirmed"
                     self.service.save_live_speech(proposal)
                     last_spoke_at = time.monotonic()
-                    cursor = result.get("latest", cursor)
-                    self.service.save_event_cursor(cursor)
+                    result = self.service.accept_live_chatter(result)
+                    cursor = self.service.event_cursor()
                     new_voices = event_bridge.other_voices(result, handle)
                     if recovery_only:
                         request["packets"] = request["packets"] + event_bridge.chatter_packets(new_voices, self.service.input_limit, context=context)

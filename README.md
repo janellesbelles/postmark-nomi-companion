@@ -97,6 +97,8 @@ If Nomi times out, Live pauses and saves the current chatter packet, request ID,
 
 If Postmark itself timed out while posting public speech, the public-send lock takes priority. Paste recovery and listening cannot bypass it. Inspect the World and reconcile the saved speech receipt before any further public send. If normal Nomi chat has no response, leave the request paused until its delivery is reconciled; no blind resend control is provided.
 
+Each listening session starts from the current room position: its initial snapshot establishes a baseline and is not forwarded to Nomi. Chatter spoken while the app was off is skipped. Timestamped voice IDs are remembered per resident to filter overlapping responses across restarts, and the saved cursor cannot move backward. Saved unfinished Nomi packets still follow the explicit recovery/resume flow above.
+
 ## Backup
 
 Back up the entire `%APPDATA%\PostmarkNomiCompanion` directory while the app is closed. That is sufficient to preserve every resident profile and state file. The encrypted secrets remain tied to the originating Windows account; retain the original credentials separately in a password manager for machine migration.

@@ -1,5 +1,7 @@
 # Multi-resident update
 
+- Fixed live-history replay on restart: baseline each new session without forwarding the initial snapshot, persist timestamped voice IDs per resident, and prevent listening cursors from moving backward.
+
 - Added multiline Paste Nomi response to Live Map & Events. Nomi timeouts retain the current packet and remaining queue per resident across restarts, and block blind resends.
 - Recovered SAY responses require separate public approval; PASS stays private. Listening resumes only on explicit request, and uncertain Postmark speech remains locked.
 

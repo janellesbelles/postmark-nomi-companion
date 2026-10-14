@@ -27,6 +27,8 @@ This repository contains the generic companion source, shared delivery code, Win
 
 ## Verification and limitations
 
+Live session starts baseline the current room instead of relaying its initial history snapshot. Timestamped message identities and a monotonic cursor persist per resident; overlapping messages at or before the cursor are ignored. Conversations that happened while listening was off are intentionally skipped. Saved unfinished packets remain subject to explicit Nomi recovery/resume.
+
 The October 14, 2026 live-recovery update passed local tests with Python 3.13 on Windows, including a rendered Tk window smoke test, resident isolation, mail checkpoint recovery, speech approval/rejection, uncertain speech delivery, and Nomi timeout/paste recovery across restart. Tests simulate Nomi and speech writes. Production speaking rules were checked through a read-only Postmark call; no public message was posted as part of verification.
 
 An end-to-end live session with the recipient's own credentials still needs human validation. External API contracts may change. Input limits are characters (400 or 800), not words; public speech currently caps at 500 characters. Oversized individual chatter is clipped with a visible marker.

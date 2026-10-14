@@ -27,7 +27,13 @@ class LiveSessionTests(unittest.TestCase):
                 return "fake-key"
 
             def event_cursor(self):
-                return 100
+                return self.state.get("latest", 100)
+
+            def accept_live_chatter(self, result, *, baseline=False):
+                fresh, ids = app.event_bridge.remember_voices(result, self.state.get("heard_ids", []), baseline=baseline)
+                self.state["heard_ids"] = ids
+                self.state["latest"] = result.get("latest", 100)
+                return fresh
 
             def save_event_cursor(self, cursor):
                 self.cursor = cursor
@@ -75,10 +81,12 @@ class LiveSessionTests(unittest.TestCase):
         def listen(*args, **kwargs):
             nonlocal listened
             listened += 1
-            if listened > 1 or reply == "PASS":
+            if listened > 2 or (reply == "PASS" and listened > 1):
                 session.stop_event.set()
+            if listened == 1:
+                return {"latest": 100, "voices": [{"handle": "neighbor", "said": "Old room history", "at_ms": 100}]}
             return {"latest": 101, "where": {"place": "The garden"},
-                    "voices": [{"handle": "neighbor", "said": "Hello!"}]}
+                    "voices": [{"handle": "neighbor", "said": "Hello!", "at_ms": 101}]}
 
         def speak(*args, **kwargs):
             if fail_speech:
@@ -138,6 +146,28 @@ class LiveSessionTests(unittest.TestCase):
         listen.assert_not_called()
         self.assertEqual(len(session.service.packets), 1)
 
+    def test_session_initial_history_is_never_forwarded(self):
+        session, _, _ = self.run_session()
+        self.assertEqual(len(session.service.packets), 1)
+        self.assertIn("Hello!", session.service.packets[0])
+        self.assertNotIn("Old room history", session.service.packets[0])
+
+    def test_heard_ids_survive_restart_and_cursor_never_moves_back(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            profiles = app.ProfileStore(directory)
+            profile = profiles.add(handle="resident-one", nomi_name="One", settings={})
+            service = app.ResidentService(profiles, profile)
+            old = {"latest": 200, "voices": [{"handle": "neighbor", "said": "Same words", "at_ms": 150}]}
+            self.assertEqual(service.accept_live_chatter(old, baseline=True)["voices"], [])
+            reopened = app.ResidentService(app.ProfileStore(directory), profile)
+            self.assertEqual(reopened.accept_live_chatter(old)["voices"], [])
+            new = {"latest": 201, "voices": [{"handle": "neighbor", "said": "Same words", "at_ms": 201}]}
+            self.assertEqual(len(reopened.accept_live_chatter(new)["voices"]), 1)
+            self.assertEqual(reopened.accept_live_chatter(new)["voices"], [])
+            reopened.save_event_cursor(100)
+            self.assertEqual(reopened.event_cursor(), 201)
+            reopened.accept_live_chatter({"latest": 50, "voices": []}, baseline=True)
+            self.assertEqual(reopened.event_cursor(), 201)
     def make_recovery(self, service):
         session = object.__new__(app.LiveEventsWindow)
         session.service = service

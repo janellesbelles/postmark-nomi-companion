@@ -5,6 +5,7 @@ No resident identity or credential is stored in this module. Inject both at runt
 from __future__ import annotations
 
 import json
+import hashlib
 import urllib.error
 import urllib.request
 import uuid
@@ -120,6 +121,31 @@ def other_voices(result, resident_handle):
                 {"handle": handle, "said": said, "ago": str(voice.get("ago") or "")}
             )
     return normalized
+
+
+def voice_ids(result):
+    """Stable identities for individual sounds, not repeated text alone."""
+    return [
+        hashlib.sha256(json.dumps(
+            [voice.get("handle"), voice.get("at_ms"), voice.get("said")],
+            ensure_ascii=False, separators=(",", ":"),
+        ).encode("utf-8")).hexdigest()
+        if isinstance(voice.get("at_ms"), (int, float)) else None
+        for voice in result.get("voices", []) or []
+    ]
+
+
+def remember_voices(result, seen, *, baseline=False):
+    """Filter response overlap while keeping equal words at different times."""
+    known = set(seen)
+    voices = []
+    for voice, identity in zip(result.get("voices", []) or [], voice_ids(result)):
+        if not baseline and (identity is None or identity not in known):
+            voices.append(voice)
+        if identity is not None and identity not in known:
+            seen.append(identity)
+            known.add(identity)
+    return dict(result, voices=voices), seen[-4000:]
 
 
 def chatter_packets(voices, message_limit, *, context=""):
