@@ -54,6 +54,7 @@ def can_paste_reply(entry):
         and entry.get("status") in MANUAL_REPLY_STATUSES
         and not entry.get("pr")
         and not entry.get("cleared_from_mailbox_at")
+        and not entry.get("archived_at")
     )
 
 
@@ -826,6 +827,11 @@ class App(tk.Tk):
         left.pack(side="left", fill="y", padx=(0, 15))
         left.pack_propagate(False)
         tk.Label(left, text="THIS RESIDENT'S MAILBOX", font=("Segoe UI", 9, "bold"), fg=CYAN, bg=CARD).pack(anchor="w", padx=15, pady=(17, 8))
+        self.show_archived = tk.BooleanVar(value=False)
+        self.archived_toggle = tk.Checkbutton(left, text="Show archived mail", variable=self.show_archived, command=self.toggle_archived,
+            bg=CARD, fg=INK, selectcolor=BG, activebackground=CARD, activeforeground=INK)
+        self.archived_toggle.pack(anchor="w", padx=12)
+        self.controls.append(self.archived_toggle)
         self.listbox = tk.Listbox(
             left, bg=CARD, fg=INK, selectbackground="#49415f", selectforeground=CYAN,
             font=("Segoe UI", 10), relief="flat", borderwidth=0, highlightthickness=0,
@@ -840,10 +846,10 @@ class App(tk.Tk):
         self.detail = tk.Label(right, text="Choose or add a resident", font=("Segoe UI", 13, "bold"), fg=LILAC, bg=BG)
         self.detail.pack(anchor="w", pady=(0, 8))
         tk.Label(right, text="INCOMING LETTER", font=("Segoe UI", 9, "bold"), fg=MUTED, bg=BG).pack(anchor="w")
-        self.incoming = self.textbox(right, 8)
+        self.incoming = self.textbox(right, 1)
         self.incoming.pack(fill="both", expand=True, pady=(5, 12))
         tk.Label(right, text="NOMI DRAFT · edit before approving", font=("Segoe UI", 9, "bold"), fg=CYAN, bg=BG).pack(anchor="w")
-        self.draft = self.textbox(right, 8)
+        self.draft = self.textbox(right, 1)
         self.draft.pack(fill="both", expand=True, pady=(5, 9))
         actions = tk.Frame(right, bg=BG)
         actions.pack(fill="x", pady=(0, 7))
@@ -863,6 +869,8 @@ class App(tk.Tk):
         self.recover_btn.pack(side="left", padx=(0, 8))
         self.resend_btn = self.button(recovery, "Resend after check…", self.resend_after_timeout, CARD)
         self.resend_btn.pack(side="left")
+        self.archive_btn = self.button(recovery, "Archive mail…", self.archive_mail, CARD)
+        self.archive_btn.pack(side="left", padx=8)
 
         self.status = tk.StringVar(value="Ready.")
         tk.Label(self, textvariable=self.status, wraplength=1020, justify="left", font=("Segoe UI", 10), fg=MUTED, bg=BG).pack(anchor="w", padx=26, pady=(12, 17))
@@ -996,9 +1004,11 @@ class App(tk.Tk):
             "awaiting_nomi_confirmation": "approve Nomi",
         }
         for key, entry in sorted(entries.items(), reverse=True):
+            if bool(entry.get("archived_at")) != self.show_archived.get():
+                continue
             # Cleared letters remain durable and stay in `seen` for duplicate
             # protection, but no longer clutter the active mailbox.
-            if entry.get("status") == "rejected" or entry.get("cleared_from_mailbox_at"):
+            if (entry.get("status") == "rejected" and not entry.get("archived_at")) or entry.get("cleared_from_mailbox_at"):
                 continue
             self.ids.append(key)
             sender = (entry.get("fields") or {}).get("from", "unknown")
@@ -1045,6 +1055,9 @@ class App(tk.Tk):
 
     def update_actions(self):
         entry = self.service.entries().get(self.current, {}) if self.service and self.current else {}
+        archived = bool(entry.get("archived_at"))
+        if archived:
+            entry = {}
         pending = entry.get("status") == "pending"
         submitted = entry.get("status") == "pr_open"
         awaiting = entry.get("status") == "awaiting_nomi_confirmation"
@@ -1062,13 +1075,16 @@ class App(tk.Tk):
         self.recover_btn.configure(state="normal" if can_paste_reply(entry) else "disabled")
         self.resend_btn.configure(state="normal" if uncertain else "disabled")
         self.pr_btn.configure(state="normal" if entry.get("pr") else "disabled")
+        self.draft.configure(state="normal" if pending else "disabled")
+        can_archive = entry.get("status") in {"pending", "awaiting_nomi_confirmation", "needs_attention", "response_unknown", "rejected"} and not entry.get("pr") and not entry.get("submission")
+        self.archive_btn.configure(text="Restore mail" if archived else "Archive mail…", state="normal" if archived or can_archive else "disabled")
 
     def autosave(self):
         if not self.service or not self.current:
             return
         entry = self.service.entries().get(self.current, {})
         text = self.draft.get("1.0", "end").strip()
-        if entry.get("status") == "pending" and text and text != entry.get("draft", ""):
+        if not entry.get("archived_at") and entry.get("status") == "pending" and text and text != entry.get("draft", ""):
             try:
                 self.service.save_draft(self.current, text)
             except Exception:
@@ -1139,7 +1155,7 @@ class App(tk.Tk):
         while self.nomi_confirmation_queue:
             key = self.nomi_confirmation_queue.pop(0)
             entry = self.service.entries().get(key, {})
-            if entry.get("status") != "awaiting_nomi_confirmation":
+            if entry.get("archived_at") or entry.get("status") != "awaiting_nomi_confirmation":
                 continue
             self.current = key
             self.refresh()
@@ -1176,6 +1192,8 @@ class App(tk.Tk):
             return
         key = self.current
         entry = self.service.entries().get(key, {})
+        if entry.get("archived_at"):
+            return
         if entry.get("status") == "awaiting_nomi_confirmation":
             if not self.nomi_delivery_confirmed(key):
                 self.status.set("Left queued for approval. Nothing was sent to the Nomi.")
@@ -1340,6 +1358,29 @@ class App(tk.Tk):
             lambda: self.service.resend_after_timeout(key, next_part=next_part),
             lambda _value: self.status.set("Recovered draft held for review."),
         )
+
+    def toggle_archived(self):
+        self.autosave()
+        self.refresh()
+
+    def archive_mail(self):
+        if self.busy or not self.current:
+            return
+        service, key = self.service, self.current
+        entry = service.entries()[key]
+        if entry.get("archived_at"):
+            service.pipeline().restore(key)
+            self.show_archived.set(False)
+        else:
+            if not messagebox.askyesno("Archive without replying?",
+                f"Archive this letter for {service.name} / @{service.handle}?\n\n"
+                "Its original status, letter, draft, checkpoints and duplicate protection remain saved. "
+                "No Nomi message or public mail is sent. An uncertain earlier message may already have arrived; archiving does not undo it.", parent=self):
+                return
+            self.autosave()
+            service.pipeline().archive(key)
+        self.refresh()
+        self.status.set("Archive updated locally. Nothing was sent or deleted.")
 
     def dismiss_current(self):
         if not self.current:

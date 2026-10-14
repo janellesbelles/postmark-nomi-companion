@@ -253,18 +253,20 @@ class MailPipeline:
             self.state.write(state)
         return [
             key for key, entry in state["letters"].items()
-            if entry.get("status") == "awaiting_nomi_confirmation"
+            if entry.get("status") == "awaiting_nomi_confirmation" and not entry.get("archived_at")
         ]
 
     def confirm_delivery(self, key):
         state = self.state.read()
         entry = state["letters"][key]
-        if entry.get("status") != "awaiting_nomi_confirmation":
+        if entry.get("archived_at") or entry.get("status") != "awaiting_nomi_confirmation":
             raise ValueError("This letter is not waiting for Nomi delivery approval.")
         return self._prepare_and_send(state, key, completed=0)
 
     def _prepare_and_send(self, state, key, *, completed):
         entry = state["letters"][key]
+        if entry.get("archived_at"):
+            raise ValueError("Restore archived mail before delivery or recovery.")
         try:
             fields = entry.get("fields")
             body = entry.get("body")
@@ -333,6 +335,8 @@ class MailPipeline:
             raise
 
     def _resume_checkpoint(self, state, entry, *, next_part, human_checked_chat):
+        if entry.get("archived_at"):
+            raise ValueError("Restore archived mail before changing checkpoints.")
         saved_completed = int(entry.get("nomi_parts_completed", 0) or 0)
         if next_part is None:
             return saved_completed
@@ -392,6 +396,8 @@ class MailPipeline:
             raise ValueError("Paste a non-empty Nomi reply.")
         state = self.state.read()
         entry = state["letters"][key]
+        if entry.get("archived_at"):
+            raise ValueError("Restore archived mail before replacing its reply.")
         if entry.get("draft"):
             entry.setdefault("draft_history", []).append({"text": entry["draft"]})
         entry["draft"] = reply_text
@@ -409,7 +415,7 @@ class MailPipeline:
             raise ValueError("The draft is empty.")
         state = self.state.read()
         entry = state["letters"][key]
-        if entry.get("status") != "pending":
+        if entry.get("archived_at") or entry.get("status") != "pending":
             raise ValueError("Only a held pending draft can be edited.")
         entry["draft"] = text
         entry["edited_by_human"] = True
@@ -419,7 +425,7 @@ class MailPipeline:
     def reject(self, key):
         state = self.state.read()
         entry = state["letters"][key]
-        if entry.get("status") != "pending":
+        if entry.get("archived_at") or entry.get("status") != "pending":
             raise ValueError("Only a held pending draft can be rejected.")
         entry["status"] = "rejected"
         self.state.write(state)
@@ -432,5 +438,27 @@ class MailPipeline:
         if entry.get("status") != "pr_open":
             raise ValueError("Only a successfully submitted letter can be cleared.")
         entry["cleared_from_mailbox_at"] = time.time()
+        self.state.write(state)
+        return entry
+
+    def archive(self, key):
+        """Hide inactive inbound mail without changing delivery history."""
+        state = self.state.read()
+        entry = state["letters"][key]
+        if entry.get("pr") or entry.get("submission") or entry.get("status") not in {
+            "awaiting_nomi_confirmation", "needs_attention", "response_unknown", "pending", "rejected"
+        }:
+            raise ValueError("Only inactive, unsubmitted inbound mail can be archived.")
+        entry.setdefault("archived_at", time.time())
+        self.state.write(state)
+        return entry
+
+    def restore(self, key):
+        state = self.state.read()
+        entry = state["letters"][key]
+        if not entry.get("archived_at"):
+            raise ValueError("This letter is not archived.")
+        entry.pop("archived_at")
+        entry["restored_at"] = time.time()
         self.state.write(state)
         return entry

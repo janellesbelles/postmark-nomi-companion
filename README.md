@@ -103,6 +103,12 @@ If Postmark itself timed out while posting public speech, the public-send lock t
 
 Each listening session starts from the current room position: its initial snapshot establishes a baseline and is not forwarded to Nomi. Chatter spoken while the app was off is skipped. Timestamped voice IDs are remembered per resident to filter overlapping responses across restarts, and the saved cursor cannot move backward. Saved unfinished Nomi packets still follow the explicit recovery/resume flow above.
 
+## Archive mail without replying
+
+Select an inactive, unsubmitted incoming letter and choose **Archive mail…**. Confirming hides it without sending a Nomi message or creating public mail. Its original status, letter, draft, confirmed-part checkpoint and seen ID remain saved. A previous uncertain message may already have reached Nomi; archiving does not undo that attempt or mark it failed.
+
+Tick **Show archived mail** to view archived letters. **Restore mail** returns one with its original status and sends nothing. Archived entries cannot be delivered, resumed, edited, pasted over or submitted until explicitly restored. Active requests and submitted/uncertain-public-submission entries cannot be archived; successfully submitted mail still uses **Clear submitted**. Do not delete state files to remove clutter. Archiving is per resident and does not affect other profiles.
+
 ## Backup
 
 Back up the entire `%APPDATA%\PostmarkNomiCompanion` directory while the app is closed. That is sufficient to preserve every resident profile and state file. The encrypted secrets remain tied to the originating Windows account; retain the original credentials separately in a password manager for machine migration.

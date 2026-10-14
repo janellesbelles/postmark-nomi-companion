@@ -15,6 +15,8 @@ This repository contains the generic companion source, shared delivery code, Win
 
 ## Delivery rules to preserve
 
+- `archived_at` is a visibility flag, not a delivery status. Archive/restore preserve the original status, full letter, draft, confirmed checkpoints and `seen` entry. Filter archives from both the active mailbox and automatic confirmation queue. Require restoration before send/recovery/edit/submission; do not hide active requests or uncertain public submissions. The archive checkbox participates in the busy-control lock.
+
 - Each resident owns a distinct settings file, mail state, and live state under the app-data directory documented in the README. Credentials use Windows DPAPI.
 - Settings updates merge existing resident options; blank or omitted encrypted secrets preserve the existing ciphertext. Update app files without overwriting the app-data directory. Live input defaults to 800 independently of existing mail chunk checkpoints.
 - Incoming letters require approval before going to Nomi. A seen baseline is not evidence that a letter was answered; use Postmark's correspondence state to identify older unanswered threads.
