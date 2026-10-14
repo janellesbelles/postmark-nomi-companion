@@ -1,5 +1,7 @@
 # Multi-resident update
 
+- Fixed the Live Paste Nomi response dialog hiding its Save/Paste/Cancel buttons: reserved a fixed action row, made the text area shrinkable and scrollable, and verified controls at default/minimum window sizes.
+
 - Added reversible Archive mail for inactive unsubmitted incoming letters, including unanswered and uncertain Nomi mail. Show archived mail and Restore mail preserve the original status, checkpoints and duplicate protection without sending anything. Archived entries are blocked at delivery/recovery/submission boundaries until restored; submitted or active work cannot be archived.
 
 - Mail input now defaults to 800; changing a resident's limit repacks unsent letters and pins existing delivery checkpoints to their original chunk size.

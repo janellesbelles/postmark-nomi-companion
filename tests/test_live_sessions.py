@@ -276,6 +276,15 @@ class LiveSessionTests(unittest.TestCase):
                 dialog = next(child for child in window.winfo_children() if isinstance(child, app.tk.Toplevel))
                 actions = next(child for child in dialog.winfo_children() if isinstance(child, app.tk.Frame))
                 buttons = {str(child["text"]): child for child in actions.winfo_children()}
+                for geometry in ("650x440", "480x320"):
+                    dialog.geometry(geometry)
+                    dialog.update()
+                    for name in ("Paste clipboard", "Save response", "Cancel"):
+                        button = buttons[name]
+                        self.assertTrue(button.winfo_ismapped())
+                        self.assertGreaterEqual(button.winfo_rooty(), dialog.winfo_rooty())
+                        self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), dialog.winfo_rooty() + dialog.winfo_height())
+                        self.assertLessEqual(button.winfo_rootx() + button.winfo_width(), dialog.winfo_rootx() + dialog.winfo_width())
                 reply = "SAY: First paragraph.\n\nSecond paragraph."
                 with patch.object(app.tk.Toplevel, "clipboard_get", return_value=reply):
                     buttons["Paste clipboard"].invoke()

@@ -95,7 +95,7 @@ Live uses an 800-character Nomi input allowance by default, independently of exi
 If Nomi times out, Live pauses and saves the current chatter packet, request ID, and remaining packet queue per resident. Reopening the app preserves this recovery. The app will not automatically resend the uncertain packet.
 
 1. Check the selected resident's normal Nomi chat for the response.
-2. In **Live Map & Events**, click **Paste Nomi response**. Paste `SAY:` followed by the exact public words, or `PASS` to stay quiet. The multiline dialog has a clipboard button and validates the response.
+2. In **Live Map & Events**, click **Paste Nomi response**. Paste `SAY:` followed by the exact public words, or `PASS` to stay quiet. The multiline dialog has a clipboard button, a scrollable reply area, and a fixed row of Save/Cancel controls. **Ctrl+Enter** also saves the response.
 3. Save the response. A `SAY:` response opens the separate resident-labelled public approval screen; `PASS` remains private. No chatter packet is resent during this recovery.
 4. The relay stays paused afterward. Click **Resume listening** to process any remaining saved packets and then hear new chatter.
 

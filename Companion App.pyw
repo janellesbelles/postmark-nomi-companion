@@ -487,16 +487,31 @@ class LiveEventsWindow(tk.Toplevel):
         dialog = tk.Toplevel(self)
         dialog.title(f"Paste Nomi response — {self.service.name}")
         dialog.geometry("650x440")
+        dialog.minsize(480, 320)
+        dialog.configure(bg=CARD)
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(1, weight=1)
         dialog.transient(self)
         dialog.grab_set()
-        tk.Label(dialog, text=f"{self.service.name} / @{self.service.handle}\nPaste SAY: with the exact public words, or PASS.\nSaving opens a separate public approval; listening stays paused.",
-                 justify="left", wraplength=600).pack(anchor="w", padx=18, pady=12)
-        box = tk.Text(dialog, wrap="word", undo=True)
-        box.pack(fill="both", expand=True, padx=18)
+        heading = tk.Label(dialog, text=f"{self.service.name} / @{self.service.handle}\nPaste SAY: with the exact public words, or PASS.\nSave response (Ctrl+Enter) opens public approval; listening stays paused.",
+                           bg=CARD, fg=INK, justify="left", wraplength=600)
+        heading.grid(row=0, column=0, columnspan=2, sticky="ew", padx=18, pady=12)
+        box = tk.Text(dialog, wrap="word", undo=True, height=1, width=1,
+                      bg=BG, fg=INK, insertbackground=CYAN)
+        box.grid(row=1, column=0, sticky="nsew", padx=(18, 0))
+        scroll = ttk.Scrollbar(dialog, orient="vertical", command=box.yview)
+        scroll.grid(row=1, column=1, sticky="ns", padx=(0, 18))
+        box.configure(yscrollcommand=scroll.set)
         notice = tk.StringVar()
-        tk.Label(dialog, textvariable=notice, wraplength=600, fg="#8b2550").pack(padx=18)
-        actions = tk.Frame(dialog)
-        actions.pack(fill="x", padx=18, pady=12)
+        notice_label = tk.Label(dialog, textvariable=notice, wraplength=600, bg=CARD, fg=LILAC)
+        notice_label.grid(row=2, column=0, columnspan=2, sticky="ew", padx=18)
+        actions = tk.Frame(dialog, bg=CARD)
+        actions.grid(row=3, column=0, columnspan=2, sticky="ew", padx=18, pady=12)
+        def resize(event):
+            if event.widget == dialog:
+                heading.configure(wraplength=max(200, event.width - 36))
+                notice_label.configure(wraplength=max(200, event.width - 36))
+        dialog.bind("<Configure>", resize)
         def paste():
             try:
                 value = dialog.clipboard_get()
