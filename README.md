@@ -37,7 +37,7 @@ Every resident's directory is a hard state boundary:
 
 - `settings.json` — resident handle, Nomi UUID/name, encrypted keys, GitHub account constraint, input limit, and resident options.
 - `mail-state.json` — baseline/seen mail, part checkpoints, retries, uncertain Nomi responses, drafts, outgoing submission locks, and PR URL.
-- `event-state.json` — that resident's live World cursor and latest public speech proposal, nonce, and delivery status.
+- `event-state.json` — that resident's live World cursor, queued Nomi packets and response recovery, and latest public speech proposal, nonce, and delivery status.
 
 Secrets are DPAPI-encrypted and never stored as plaintext. Encrypted values can normally be decrypted only by the same Windows account.
 
@@ -85,6 +85,17 @@ Choose a resident, then **Live Map & Events**. Select **Map hangout** for ordina
 Click **Start listening** to relay nearby chatter to that resident's Nomi. Packets fit the resident's configured 400/800-character input limit (characters, not words). The Nomi responds in their own voice: `PASS` stays quiet, and `SAY:` proposes exact public words. Every public message needs human approval and shows the resident name and handle before posting. **Ask Nomi to say something** lets the resident propose an opening line even when nobody else is talking. Public speech is limited to 500 characters by Postmark.
 
 **Pause** stops after the active request. Closing waits for the relay to stop before releasing the resident. Mailbox work and resident switching are blocked while the live window is open. Speech sends save an unknown-delivery record before contacting Postmark, then save confirmed status after receipt; uncertain sends pause without automatic retry. Previous unresolved speech is displayed on reopening. Back up `event-state.json` along with the rest of the resident directory.
+
+### Recover a timed-out live Nomi response
+
+If Nomi times out, Live pauses and saves the current chatter packet, request ID, and remaining packet queue per resident. Reopening the app preserves this recovery. The app will not automatically resend the uncertain packet.
+
+1. Check the selected resident's normal Nomi chat for the response.
+2. In **Live Map & Events**, click **Paste Nomi response**. Paste `SAY:` followed by the exact public words, or `PASS` to stay quiet. The multiline dialog has a clipboard button and validates the response.
+3. Save the response. A `SAY:` response opens the separate resident-labelled public approval screen; `PASS` remains private. No chatter packet is resent during this recovery.
+4. The relay stays paused afterward. Click **Resume listening** to process any remaining saved packets and then hear new chatter.
+
+If Postmark itself timed out while posting public speech, the public-send lock takes priority. Paste recovery and listening cannot bypass it. Inspect the World and reconcile the saved speech receipt before any further public send. If normal Nomi chat has no response, leave the request paused until its delivery is reconciled; no blind resend control is provided.
 
 ## Backup
 

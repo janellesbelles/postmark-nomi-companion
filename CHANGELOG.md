@@ -1,5 +1,8 @@
 # Multi-resident update
 
+- Added multiline Paste Nomi response to Live Map & Events. Nomi timeouts retain the current packet and remaining queue per resident across restarts, and block blind resends.
+- Recovered SAY responses require separate public approval; PASS stays private. Listening resumes only on explicit request, and uncertain Postmark speech remains locked.
+
 - Added explicit Map hangout and Event modes under Live Map & Events, including a Nomi-authored opening-line button for quiet rooms.
 - Public speech now requires a resident-labelled approval preview; proposals, nonces, and unknown/confirmed delivery are saved per resident.
 - Pausing/closing waits for the active relay to finish, and mailbox work cannot overlap a live session.

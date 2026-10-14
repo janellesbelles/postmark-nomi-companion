@@ -240,6 +240,29 @@ class ResidentService:
         state["speech"] = speech
         mail_pipeline.AtomicState(self.event_state_path).write(state)
 
+    def save_live_nomi(self, request):
+        state = self.live_state()
+        state["nomi"] = request
+        mail_pipeline.AtomicState(self.event_state_path).write(state)
+
+    def recover_live_reply(self, text):
+        """Recover a private Nomi result without sending or clearing public locks."""
+        state = self.live_state()
+        if (state.get("speech") or {}).get("status") == "unknown":
+            raise ValueError("Public speech delivery is uncertain. Check the World; pasting cannot unlock or resend it.")
+        request = state.get("nomi") or {}
+        if request.get("status") not in {"awaiting_reply", "response_unknown", "reply_ready"}:
+            raise ValueError("There is no interrupted Nomi response to recover for this resident.")
+        text = (text or "").strip()
+        event_bridge.speech_from_nomi(text)
+        if not text:
+            raise ValueError("Paste SAY: followed by the public words, or PASS to stay quiet.")
+        request.update(status="reply_ready", reply=text, recovered_manually=True)
+        request.pop("error", None)
+        state["nomi"] = request
+        mail_pipeline.AtomicState(self.event_state_path).write(state)
+        return request
+
 
 class LiveEventsWindow(tk.Toplevel):
     def __init__(self, app, service):
@@ -248,6 +271,7 @@ class LiveEventsWindow(tk.Toplevel):
         self.service = service
         self.profile_id = service.profile_id
         self.running = False
+        self.recovering_live = False
         self.stop_event = threading.Event()
         self.tasks = queue.Queue()
         self.calendar_events = []
@@ -313,6 +337,8 @@ class LiveEventsWindow(tk.Toplevel):
         self.ask_btn = self._button(right, "Ask Nomi to say something", self.ask_to_speak, LILAC)
         self.ask_btn.pack(anchor="w", pady=(0, 8))
         self.ask_btn.configure(state="disabled")
+        self.paste_live_btn = self._button(right, "Paste Nomi response", self.paste_live_reply, CARD)
+        self.paste_live_btn.pack(anchor="w", pady=(0, 8))
         tk.Label(
             right,
             text=f"Nomi packet: {service.input_limit} characters · Public speech: 500 characters max · No travel, RSVP, or spending.",
@@ -326,6 +352,12 @@ class LiveEventsWindow(tk.Toplevel):
         if previous.get("status") in {"proposed", "unknown"}:
             self.log(f"Previous public speech ({previous['status']}): {previous.get('text', '')}")
             self.log("This saved proposal is not posted automatically. If delivery was unknown, check the World before speaking again.")
+        request = service.live_state().get("nomi") or {}
+        if request.get("status") in {"awaiting_reply", "response_unknown"}:
+            self.log("A Nomi response is uncertain. Check normal Nomi chat and use Paste Nomi response. The saved packet will not be resent.")
+        elif request.get("status") == "reply_ready":
+            self.log("A saved Nomi response awaits review. Start listening to review it before any new chatter.")
+        self.update_live_recovery()
 
     def _button(self, parent, text, command, color):
         return tk.Button(
@@ -374,6 +406,13 @@ class LiveEventsWindow(tk.Toplevel):
             self.toggle_btn.configure(state="disabled")
             self.ask_btn.configure(state="disabled")
             return
+        state = self.service.live_state()
+        if (state.get("speech") or {}).get("status") == "unknown":
+            messagebox.showinfo("Check public speech", "A public message may already have posted. Check the World before any further speech. Paste recovery cannot unlock this send.", parent=self)
+            return
+        if (state.get("nomi") or {}).get("status") in {"awaiting_reply", "response_unknown"}:
+            messagebox.showinfo("Recover Nomi response", "Check this resident's normal Nomi chat, then use Paste Nomi response. The saved chatter will not be resent.", parent=self)
+            return
         if not self.service.connected() or not self.service.postmark_key():
             messagebox.showinfo(
                 "Connection incomplete",
@@ -398,6 +437,7 @@ class LiveEventsWindow(tk.Toplevel):
         ):
             return
         self.running = True
+        self.paste_live_btn.configure(state="disabled")
         self.speech_requests = queue.Queue()
         self.actual_place = ""
         self.session_context = context
@@ -410,6 +450,62 @@ class LiveEventsWindow(tk.Toplevel):
         self.log("Relay on. Listening where this resident currently stands.")
         self.status.set(f"{context}: listening nearby. Every public message needs approval.")
         threading.Thread(target=self.relay_loop, daemon=True).start()
+
+    def update_live_recovery(self):
+        state = self.service.live_state()
+        request = state.get("nomi") or {}
+        recoverable = request.get("status") in {"awaiting_reply", "response_unknown", "reply_ready"}
+        locked = (state.get("speech") or {}).get("status") == "unknown"
+        self.paste_live_btn.configure(state="normal" if recoverable and not locked and not self.running else "disabled")
+        if not self.running and not locked:
+            self.toggle_btn.configure(text="Resume listening" if request.get("status") in {"queued", "reply_ready"} else "Start listening")
+
+    def paste_live_reply(self):
+        if self.running:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title(f"Paste Nomi response — {self.service.name}")
+        dialog.geometry("650x440")
+        dialog.transient(self)
+        dialog.grab_set()
+        tk.Label(dialog, text=f"{self.service.name} / @{self.service.handle}\nPaste SAY: with the exact public words, or PASS.\nSaving opens a separate public approval; listening stays paused.",
+                 justify="left", wraplength=600).pack(anchor="w", padx=18, pady=12)
+        box = tk.Text(dialog, wrap="word", undo=True)
+        box.pack(fill="both", expand=True, padx=18)
+        notice = tk.StringVar()
+        tk.Label(dialog, textvariable=notice, wraplength=600, fg="#8b2550").pack(padx=18)
+        actions = tk.Frame(dialog)
+        actions.pack(fill="x", padx=18, pady=12)
+        def paste():
+            try:
+                value = dialog.clipboard_get()
+                box.delete("1.0", "end")
+                box.insert("1.0", value)
+            except tk.TclError:
+                notice.set("The clipboard does not contain text.")
+        def save(_event=None):
+            try:
+                self.service.recover_live_reply(box.get("1.0", "end-1c"))
+            except Exception as error:
+                notice.set(str(error))
+                return
+            dialog.destroy()
+            self.running = True
+            self.recovering_live = True
+            self.stop_event.clear()
+            self.paste_live_btn.configure(state="disabled")
+            self.toggle_btn.configure(text="Pause", state="normal")
+            self.mode_picker.configure(state="disabled")
+            self.event_list.configure(state="disabled")
+            self.refresh_btn.configure(state="disabled")
+            self.status.set("Reviewing the pasted Nomi response. Listening stays paused.")
+            threading.Thread(target=lambda: self.relay_loop(recovery_only=True), daemon=True).start()
+        tk.Button(actions, text="Paste clipboard", command=paste).pack(side="left")
+        tk.Button(actions, text="Save response", command=save).pack(side="right")
+        tk.Button(actions, text="Cancel", command=dialog.destroy).pack(side="right", padx=8)
+        dialog.bind("<Control-Return>", save)
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        box.focus_set()
 
     def ask_to_speak(self):
         if self.running and not self.stop_event.is_set():
@@ -425,7 +521,7 @@ class LiveEventsWindow(tk.Toplevel):
                 return False
         return decision["approved"] and not self.stop_event.is_set()
 
-    def relay_loop(self):
+    def relay_loop(self, recovery_only=False):
         key = self.service.postmark_key()
         handle = self.service.handle
         cursor = self.service.event_cursor()
@@ -433,13 +529,21 @@ class LiveEventsWindow(tk.Toplevel):
         last_spoke_at = 0.0
         try:
             while not self.stop_event.is_set():
+                saved = self.service.live_state()
+                if (saved.get("speech") or {}).get("status") == "unknown":
+                    raise RuntimeError("Public delivery is unknown. Check the World; no automatic resend is allowed.")
+                request = saved.get("nomi") or {}
+                if request.get("status") in {"awaiting_reply", "response_unknown"}:
+                    raise RuntimeError("Nomi delivery is unknown. Check normal chat and paste the response; the packet will not be resent.")
                 opening = False
                 try:
                     self.speech_requests.get_nowait()
                     opening = True
                 except queue.Empty:
                     pass
-                if not pending and not opening:
+                if not request.get("packets") and not pending and not opening:
+                    if recovery_only:
+                        break
                     heard = event_bridge.listen(key, handle, since=cursor, wait=5)
                     if self.stop_event.is_set():
                         break
@@ -460,12 +564,27 @@ class LiveEventsWindow(tk.Toplevel):
                     voices, pending = pending, []
                 self.tasks.put(("heard", voices))
                 context = f"{self.session_context}; at {self.actual_place}" if self.actual_place else self.session_context
-                packets = ([event_bridge.opening_packet(self.service.input_limit, context=context)]
+                packets = request.get("packets") or ([event_bridge.opening_packet(self.service.input_limit, context=context)]
                            if opening else event_bridge.chatter_packets(voices, self.service.input_limit, context=context))
+                if not request.get("packets"):
+                    request = {"status": "queued", "packets": packets, "context": context}
+                    self.service.save_live_nomi(request)
                 for packet in packets:
                     if self.stop_event.is_set():
                         break
-                    reply, _reply_id = self.service._send_nomi(packet)
+                    if request.get("status") == "reply_ready":
+                        reply = request["reply"]
+                    else:
+                        request.update(status="awaiting_reply", request_id=str(uuid.uuid4()))
+                        self.service.save_live_nomi(request)
+                        try:
+                            reply, _reply_id = self.service._send_nomi(packet)
+                        except Exception as error:
+                            request.update(status="response_unknown", error=str(error))
+                            self.service.save_live_nomi(request)
+                            raise
+                        request.update(status="reply_ready", reply=reply)
+                        self.service.save_live_nomi(request)
                     self.tasks.put(("can_ask", None))
                     if self.stop_event.is_set():
                         break
@@ -473,15 +592,29 @@ class LiveEventsWindow(tk.Toplevel):
                         speech = event_bridge.speech_from_nomi(reply)
                     except ValueError as error:
                         self.tasks.put(("private", f"{error} Draft kept private: {reply}"))
-                        continue
+                        raise RuntimeError("Nomi's response needs manual review. Use Paste Nomi response with SAY: or PASS.") from error
                     if speech is None:
                         self.tasks.put(("quiet", f"{self.service.name} stayed quiet."))
+                        self.finish_live_reply(request)
+                        if recovery_only:
+                            break
                         continue
-                    proposal = {"text": speech, "nonce": str(uuid.uuid4()), "status": "proposed"}
+                    previous = (self.service.live_state().get("speech") or {})
+                    if previous.get("request_id") == request.get("request_id") and previous.get("status") in {"confirmed", "kept_private"}:
+                        self.finish_live_reply(request)
+                        if recovery_only:
+                            break
+                        continue
+                    proposal = {"text": speech, "nonce": str(uuid.uuid4()), "status": "proposed", "request_id": request.get("request_id")}
                     self.service.save_live_speech(proposal)
                     if not self.approve_live_speech(speech):
+                        if self.stop_event.is_set():
+                            break
                         proposal["status"] = "kept_private"
                         self.service.save_live_speech(proposal)
+                        self.finish_live_reply(request)
+                        if recovery_only:
+                            break
                         continue
                     remaining = 15.5 - (time.monotonic() - last_spoke_at)
                     if remaining > 0 and self.stop_event.wait(remaining):
@@ -496,12 +629,28 @@ class LiveEventsWindow(tk.Toplevel):
                     last_spoke_at = time.monotonic()
                     cursor = result.get("latest", cursor)
                     self.service.save_event_cursor(cursor)
-                    pending.extend(event_bridge.other_voices(result, handle))
+                    new_voices = event_bridge.other_voices(result, handle)
+                    if recovery_only:
+                        request["packets"] = request["packets"] + event_bridge.chatter_packets(new_voices, self.service.input_limit, context=context)
+                    else:
+                        pending.extend(new_voices)
                     self.tasks.put(("spoke", speech))
+                    self.finish_live_reply(request)
+                    if recovery_only:
+                        break
+                if recovery_only:
+                    break
         except Exception as error:
             self.tasks.put(("relay_error", str(error)))
         finally:
             self.tasks.put(("stopped", None))
+
+    def finish_live_reply(self, request):
+        request["packets"] = request.get("packets", [])[1:]
+        request["status"] = "queued" if request["packets"] else "resolved"
+        for field in ("reply", "request_id", "error"):
+            request.pop(field, None)
+        self.service.save_live_nomi(request)
 
     def drain(self):
         if not self.winfo_exists():
@@ -536,9 +685,10 @@ class LiveEventsWindow(tk.Toplevel):
                     finally:
                         value["ready"].set()
                 elif kind == "can_ask":
-                    self.ask_btn.configure(state="normal" if self.running and not self.stop_event.is_set() else "disabled")
+                    self.ask_btn.configure(state="normal" if self.running and not self.recovering_live and not self.stop_event.is_set() else "disabled")
                 elif kind == "error":
                     self.refresh_btn.configure(state="normal")
+                    self.update_live_recovery()
                     self.status.set(value)
                 elif kind == "status":
                     self.status.set(value)
@@ -556,11 +706,13 @@ class LiveEventsWindow(tk.Toplevel):
                     self.status.set("Paused after an error. Nothing uncertain will be resent automatically.")
                 elif kind == "stopped":
                     self.running = False
+                    self.recovering_live = False
                     self.toggle_btn.configure(text="Start listening", bg=LILAC, state="normal")
                     self.ask_btn.configure(state="disabled")
                     self.mode_picker.configure(state="readonly")
                     self.event_list.configure(state="normal")
                     self.refresh_btn.configure(state="normal")
+                    self.update_live_recovery()
                     if not self.status.get().startswith("Paused after an error"):
                         self.status.set("Off. Nothing is being listened to or posted.")
         except queue.Empty:
