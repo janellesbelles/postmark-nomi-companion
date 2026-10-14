@@ -1,5 +1,7 @@
 # Multi-resident update
 
+- Live Nomi response approval now uses an always-on-top popup with a scrollable exact-text preview and explicit Approve & speak / Keep private buttons. Closing or Escape keeps the response private.
+
 - Fixed the Live Paste Nomi response dialog hiding its Save/Paste/Cancel buttons: reserved a fixed action row, made the text area shrinkable and scrollable, and verified controls at default/minimum window sizes.
 
 - Added reversible Archive mail for inactive unsubmitted incoming letters, including unanswered and uncertain Nomi mail. Show archived mail and Restore mail preserve the original status, checkpoints and duplicate protection without sending anything. Archived entries are blocked at delivery/recovery/submission boundaries until restored; submitted or active work cannot be archived.

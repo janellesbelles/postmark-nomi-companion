@@ -557,6 +557,41 @@ class LiveEventsWindow(tk.Toplevel):
                 return False
         return decision["approved"] and not self.stop_event.is_set()
 
+    def confirm_public_speech(self, speech):
+        dialog = tk.Toplevel(self)
+        dialog.title(f"Approve Nomi response — {self.service.name}")
+        dialog.geometry("640x380")
+        dialog.minsize(480, 280)
+        dialog.configure(bg=CARD)
+        dialog.transient(self)
+        dialog.attributes("-topmost", True)
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(1, weight=1)
+        tk.Label(dialog, text=f"POST AS: {self.service.name} / @{self.service.handle}\nPost these exact Nomi words publicly where this resident stands?",
+                 bg=CARD, fg=INK, wraplength=440, justify="left").grid(row=0, column=0, columnspan=2, sticky="w", padx=18, pady=14)
+        preview = tk.Text(dialog, height=1, width=1, wrap="word", bg=BG, fg=INK, padx=12, pady=10)
+        preview.insert("1.0", speech)
+        preview.configure(state="disabled")
+        preview.grid(row=1, column=0, sticky="nsew", padx=(18, 0))
+        scroll = ttk.Scrollbar(dialog, orient="vertical", command=preview.yview)
+        scroll.grid(row=1, column=1, sticky="ns", padx=(0, 18))
+        preview.configure(yscrollcommand=scroll.set)
+        actions = tk.Frame(dialog, bg=CARD)
+        actions.grid(row=2, column=0, columnspan=2, sticky="ew", padx=18, pady=14)
+        result = {"approved": False}
+        def decide(approved=False):
+            result["approved"] = approved
+            dialog.destroy()
+        tk.Button(actions, text="Keep private", command=decide).pack(side="left")
+        tk.Button(actions, text="Approve & speak", command=lambda: decide(True)).pack(side="right")
+        dialog.protocol("WM_DELETE_WINDOW", decide)
+        dialog.bind("<Escape>", lambda _event: decide())
+        dialog.grab_set()
+        dialog.lift()
+        dialog.focus_force()
+        self.wait_window(dialog)
+        return result["approved"]
+
     def relay_loop(self, recovery_only=False):
         key = self.service.postmark_key()
         handle = self.service.handle
@@ -730,12 +765,7 @@ class LiveEventsWindow(tk.Toplevel):
                 elif kind == "approval":
                     try:
                         if not self.stop_event.is_set():
-                            value["approved"] = messagebox.askyesno(
-                                f"Public speech — {self.service.name}",
-                                f"POST AS: {self.service.name} / @{self.service.handle}\n\n"
-                                f"{value['speech']}\n\nPost these exact Nomi words publicly where this resident stands?",
-                                parent=self,
-                            )
+                            value["approved"] = self.confirm_public_speech(value["speech"])
                     finally:
                         value["ready"].set()
                 elif kind == "can_ask":
