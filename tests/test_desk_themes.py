@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 import desk_themes
 import lamplit_ui
+import banner_art
 from profile_store import ProfileStore
 from test_live_sessions import app
 
@@ -38,8 +39,8 @@ class DeskThemeTests(unittest.TestCase):
         pipeline.state.write(state)
         self.window.refresh()
 
-    def test_six_palettes_survive_restart_without_changing_resident_data(self):
-        self.assertEqual(len(desk_themes.THEMES),6)
+    def test_eight_palettes_survive_restart_without_changing_resident_data(self):
+        self.assertEqual(len(desk_themes.THEMES),8)
         self.letter('response_unknown')
         before = self.window.service.pipeline().state.read()
         settings = self.profiles.read_settings(self.first)
@@ -142,6 +143,45 @@ class DeskThemeTests(unittest.TestCase):
             for fg,bg in [('TEXT','NIGHT'),('TEXT','PANEL'),('MUTED','PANEL'),('GOLD','SIDEBAR'),('PAPER_INK','PAPER'),('NIGHT','GOLD')]:
                 a,b=sorted((luminance(p[fg]),luminance(p[bg])))
                 self.assertGreaterEqual((b+0.05)/(a+0.05),4.5,(name,fg,bg))
+
+    def test_all_eight_headers_have_distinct_geometry_and_redraw_without_accumulation(self):
+        signatures=set()
+        banner=self.window.mail_banner
+        for name in desk_themes.THEMES:
+            self.window.theme_choice.set(name)
+            self.window.change_theme()
+            self.window.update()
+            signatures.add(tuple((banner.type(item),tuple(banner.coords(item)))
+                                 for item in banner.find_all() if banner.type(item)!='text'))
+            count=len(banner.find_all())
+            banner.redraw()
+            self.assertEqual(len(banner.find_all()),count)
+            self.assertIn(banner_art.CAPTIONS[name],
+                          [banner.itemcget(item,'text') for item in banner.find_all() if banner.type(item)=='text'])
+        self.assertEqual(len(signatures),8)
+
+    def test_evermoon_draws_exactly_two_moons_at_mail_and_live_sizes(self):
+        self.window.theme_choice.set('Evermoon')
+        self.window.change_theme()
+        for width,height in ((1000,96),(582,96),(760,76)):
+            banner=self.window.mail_banner
+            banner.delete('all')
+            banner_art.draw(banner,'Evermoon',width,height,desk_themes.palette('Evermoon'))
+            self.assertEqual(len(banner.find_withtag('moon')),2)
+            for item in banner.find_withtag('moon'):
+                x1,y1,x2,y2=banner.coords(item)
+                self.assertTrue(0<=x1<x2<=width)
+                self.assertTrue(0<=y1<y2<=height)
+                self.assertAlmostEqual(x2-x1,y2-y1)
+
+    def test_robot_theme_uses_light_surfaces_and_contrasting_text_selection(self):
+        self.window.theme_choice.set('Sprocket Pocket Sunshine')
+        self.window.change_theme()
+        self.assertEqual(self.window.cget('bg'),'#fff7e5')
+        box=lamplit_ui.paper_text(self.window)
+        self.assertEqual(box.cget('selectforeground'),desk_themes.palette('Sprocket Pocket Sunshine')['NIGHT'])
+        self.assertEqual(box.cget('selectbackground'),desk_themes.palette('Sprocket Pocket Sunshine')['GOLD'])
+        box.destroy()
 
 
 if __name__=='__main__':

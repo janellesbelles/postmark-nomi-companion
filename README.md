@@ -121,10 +121,14 @@ Tick **Show archived mail** to view archived letters. **Restore mail** returns o
 
 ## Selectable desk themes
 
-Use **Desk theme** in the left sidebar. Six themes are included: **Lamplit Desk**
+Use **Desk theme** in the left sidebar. Eight themes are included: **Lamplit Desk**
 (midnight/brass), **Rosewater** (pink/cream), **Moonflower** (lavender),
-**Moss & Mail** (sage/forest), **Tidepool** (teal/sea glass), and **Ember & Ink**
-(charcoal/copper). Each has a small locally drawn decorative icon and landscape.
+**Moss & Mail** (sage/forest), **Tidepool** (teal/sea glass), **Ember & Ink**
+(charcoal/copper), **Sprocket Pocket Sunshine** (light pastels and tiny robots),
+and **Evermoon** (night blues and two moons). Each has its own locally drawn
+header composition in Mail and Live—not just a recolored landscape: a lamplit
+cottage, rose-framed stationery, night-blooming flowers, woodland mailbox,
+coastal lighthouse, candlelit desk, pastel robot village, or double-moon lake.
 No image downloads or extra dependencies are required.
 
 The choice applies to the whole app, including an already-open Live window, and

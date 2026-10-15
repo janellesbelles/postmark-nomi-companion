@@ -9,6 +9,7 @@ import json
 import tkinter as tk
 from tkinter import ttk
 import desk_themes
+import banner_art
 
 NIGHT = '#101d2b'
 PANEL = '#172838'
@@ -125,8 +126,8 @@ class LetterList(ttk.Treeview):
 
 
 class LamplitBanner(tk.Canvas):
-    """Responsive decorative landscape; no motion or status hidden in artwork."""
-    def __init__(self, parent, caption='Letters find their way by lamplight.', height=96):
+    """Responsive, non-interactive artwork unique to the selected desk theme."""
+    def __init__(self, parent, caption=None, height=96):
         super().__init__(parent, height=height, bg=PANEL, bd=0, highlightthickness=0,
                          takefocus=False)
         self.caption = caption
@@ -135,65 +136,16 @@ class LamplitBanner(tk.Canvas):
     def redraw(self, _event=None):
         self.delete('all')
         w, h = self.winfo_width(), self.winfo_height()
-        if w < 4:
+        if w < 4 or h < 4:
             return
-        self.create_rectangle(0, 0, w, h, fill=PANEL, outline='')
-        for x, y, r in [(0.09, .19, 1), (.27, .17, 2), (.43, .29, 1), (.59, .14, 1), (.82, .2, 1)]:
-            px, py = w*x, h*y
-            self.create_oval(px-r, py-r, px+r, py+r, fill=GOLD, outline='')
-        self.create_oval(w*.74-10, 14, w*.74+10, 34, fill=PAPER, outline='')
-        self.create_polygon(w*.41, h, w*.76, h*.44, w, h*.26, w, h, fill=SOFT, outline='')
-        self.create_polygon(0, h*.38, w*.35, h*.63, w*.69, h, 0, h, fill=NIGHT, outline='')
-        self.create_polygon(w*.7, h*.72, w*.61, h, w*.73, h, w*.75, h*.72, fill=LINE, outline='')
-        # Restrained tree silhouettes on the distant bank.
-        for x, y, s in [(w*.48,h*.72,13),(w*.52,h*.69,18),(w*.56,h*.73,12)]:
-            self.create_polygon(x,y-s,x-s*.45,y+s*.3,x+s*.45,y+s*.3,fill=SIDEBAR,outline='')
-            self.create_line(x,y,x,y+s*.65,fill=SIDEBAR,width=2)
-        x, y = w*.87, h*.72
-        self.create_rectangle(x-20,y-18,x+20,y+13,fill=NIGHT,outline=LINE)
-        self.create_polygon(x-26,y-18,x,y-43,x+26,y-18,fill=NIGHT,outline=LINE)
-        for dx in [-10,7]:
-            self.create_rectangle(x+dx,y-7,x+dx+6,y+3,fill=GOLD,outline='')
-        x=w*.68
-        self.create_line(x,h*.52,x,h*.93,fill=GOLD,width=2)
-        self.create_rectangle(x-5,h*.44,x+5,h*.61,fill=GOLD,outline=PAPER,width=2)
-        self.draw_token(33, 29)
-        self.create_text(22,h-21,text=self.caption,anchor='w',fill=PAPER,
-                         font=(SERIF,11,'italic'),width=max(80,int(w*.58)))
-
-
-    def draw_token(self, x, y):
-        """Small local canvas icons, distinct even when color is not perceived."""
-        if THEME_NAME == 'Rosewater':
-            for dx,dy in ((-7,0),(7,0),(0,-7),(0,7)):
-                self.create_oval(x+dx-6,y+dy-6,x+dx+6,y+dy+6,fill=GOLD,outline='')
-            self.create_oval(x-4,y-4,x+4,y+4,fill=PAPER,outline='')
-            self.create_line(x,y+13,x+6,y+23,fill=GREEN,width=3)
-        elif THEME_NAME == 'Moonflower':
-            self.create_oval(x-13,y-13,x+13,y+13,fill=GOLD,outline='')
-            self.create_oval(x-5,y-16,x+19,y+8,fill=PANEL,outline='')
-        elif THEME_NAME == 'Moss & Mail':
-            self.create_line(x-9,y+13,x+10,y-12,fill=GOLD,width=2)
-            for dx,dy in ((-5,7),(1,-1),(6,-9)):
-                self.create_oval(x+dx-9,y+dy-6,x+dx+3,y+dy+2,fill=GREEN,outline='')
-        elif THEME_NAME == 'Tidepool':
-            self.create_arc(x-15,y-13,x+15,y+14,start=0,extent=180,fill=GOLD,outline=PAPER,style='pieslice')
-            for dx in (-9,0,9):
-                self.create_line(x,y+2,x+dx,y-9,fill=LINE,width=2)
-            self.create_line(x-14,y+13,x-6,y+10,x+3,y+14,x+14,y+11,fill=GREEN,width=2,smooth=True)
-        elif THEME_NAME == 'Ember & Ink':
-            self.create_rectangle(x-6,y-2,x+6,y+16,fill=PAPER,outline='')
-            self.create_polygon(x,y-19,x-5,y-8,x,y-3,x+5,y-8,fill=GOLD,outline='')
-        else:
-            self.create_rectangle(x-9,y-8,x+9,y+12,fill=GOLD,outline=PAPER,width=2)
-            self.create_arc(x-6,y-18,x+6,y-5,start=0,extent=180,style='arc',outline=GOLD,width=2)
-            self.create_line(x-13,y+15,x+13,y+15,fill=GOLD,width=2)
+        self.configure(bg=PANEL)
+        banner_art.draw(self, THEME_NAME, w, h, desk_themes.palette(THEME_NAME), self.caption)
 
 
 def paper_text(parent, height=1):
     return tk.Text(parent, height=height, wrap='word', undo=True,
                    bg=PAPER, fg=PAPER_INK, insertbackground=PAPER_INK,
-                   selectbackground=GOLD, selectforeground=PAPER_INK,
+                   selectbackground=GOLD, selectforeground=NIGHT,
                    relief='flat', padx=22, pady=16, font=(SERIF, 12),
                    spacing1=3, spacing3=7, borderwidth=0)
 
@@ -255,6 +207,10 @@ def build_mail(app):
     app.theme_combo=ttk.Combobox(sidebar,textvariable=app.theme_choice,values=list(app.themes),state='readonly',width=16)
     app.theme_combo.pack(fill='x',padx=12,pady=(0,8))
     app.theme_combo.bind('<<ComboboxSelected>>',app.change_theme)
+    label(sidebar,textvariable=app.theme_choice,bg=SIDEBAR,color=MUTED,size=9,
+          wraplength=150,justify='left').pack(fill='x',padx=14,pady=(0,6))
+    dropdown=app.theme_combo.tk.call('ttk::combobox::PopdownWindow',str(app.theme_combo))
+    app.theme_combo.tk.call(str(dropdown)+'.f.l','configure','-width',28)
     app.mail_banner=LamplitBanner(main)
     app.mail_banner.pack(fill='x')
     heading=tk.Frame(main,bg=NIGHT)
@@ -405,7 +361,7 @@ def build_live(window, service):
     window.live_banner.pack(fill='x')
     header=tk.Frame(window,bg=NIGHT)
     header.pack(fill='x',padx=22,pady=(14,12))
-    label(header,'By the lamplight',serif=True,size=23).pack(anchor='w')
+    label(header,'Town conversations',serif=True,size=23).pack(anchor='w')
     label(header,'Live follows this resident’s actual location. Every public reply needs your approval.',color=MUTED,size=9).pack(anchor='w',pady=(4,0))
     toolbar=tk.Frame(window,bg=NIGHT)
     toolbar.pack(fill='x',padx=22,pady=(0,12))

@@ -10,6 +10,8 @@ THEMES = {
     'Moss & Mail': ('#19291f','#24382c','#1e3025','#324b38','#506957','#edf3df','#c1ceb5','#d5ce8c','#f3f0df','#2c382a','#b2d8a3'),
     'Tidepool': ('#122b32','#1a3b43','#16333a','#254d56','#466e75','#e5f7f4','#b4d6d5','#98e0d6','#f6efdf','#263e43','#b9dfbc'),
     'Ember & Ink': ('#28211f','#382e29','#302723','#4a3930','#71564a','#fff0df','#ddc2ae','#f0b17f','#faecd9','#493024','#d2d5ac'),
+    'Sprocket Pocket Sunshine': ('#fff7e5','#e5f1eb','#e5edf7','#f7d8c6','#9aabb0','#233f4b','#465d62','#31576b','#fffdf3','#34414a','#366c61'),
+    'Evermoon': ('#0b1427','#12223c','#0e1b32','#1d3454','#3f5d83','#e8f1ff','#b3c7e6','#aecfff','#eaf1fc','#26384f','#b3ddd9'),
 }
 DEFAULT = 'Lamplit Desk'
 

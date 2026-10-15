@@ -55,9 +55,10 @@ Profile-index updates use atomic file replacement, but not a cross-process merge
 The repository is offered for review by Postmark maintainers and community builders. Repository ownership is separate from Postmark service ownership. No collaborator invitations or ownership transfers are performed by this handoff. A project license has not yet been selected; agree on licensing with the repository owner before redistribution under a new license.
 # Desk theme presentation update
 
-`lamplit_ui.py` contains the native Tk builders and local canvas decoration;
-`desk_themes.py` contains six semantic palettes, app-wide preference persistence,
-and in-place recoloring. Ship both beside `Companion App.pyw`. No runtime assets
+`lamplit_ui.py` contains the native Tk builders; `banner_art.py` draws eight
+distinct responsive header scenes. `desk_themes.py` contains eight semantic
+palettes, app-wide preference persistence, and in-place recoloring. Ship all
+three beside `Companion App.pyw`. No runtime assets
 or third-party dependencies are needed. The externally contributed patch was
 adapted, not blindly applied: its different mail adapter, branding, icon bundle,
 machine-specific setup notes, and unrelated code are not included.
@@ -70,9 +71,13 @@ still calls the existing autosave-aware handler. The Treeview adapter preserves
 the Listbox subset used by the current controller and blocks keyboard/mouse
 selection while disabled. Resident identity is explicit in the sidebar/footer.
 
-105 tests pass on Windows/Python 3.13, including six-theme persistence and
+108 tests pass on Windows/Python 3.13, including eight-theme persistence and
 contrast, unsaved draft/selection retention, 900x650 mail and 760x650 live
 geometry, private/public uncertainty locks, archive autosave, and save-failure
-rollback. A synthetic Rosewater native window was visually inspected; no real
-resident data or external messages were used. Known Tk shutdown callback
+rollback, distinct header geometry, repeated redraw cleanup, round double moons
+at mail/live sizes, and light-theme text-selection contrast. Synthetic native
+Mail and eight-theme gallery windows were visually inspected; no real resident
+data or external messages were used. Reference screenshots were not distributed;
+the header art contains no copied resident names, labels, avatars, or map data.
+Known Tk shutdown callback
 notices remain; the successful suite is not a claim of warning-free shutdown.

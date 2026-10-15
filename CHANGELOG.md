@@ -59,3 +59,11 @@
 - Add two-line mailbox rows, scrollable parchment text, contextual recovery controls, and a read-only delivery-details view.
 - Preserve archive-filter draft autosaving, human approval gates, unknown-delivery locks, and private recovery.
 - Add nine native UI/persistence/contrast regressions. All 105 tests pass with mocked network calls on Windows/Python 3.13. Existing Tk shutdown callback notices can still appear in the test runner.
+
+## Eight-theme header expansion — October 14, 2026
+
+- Add Sprocket Pocket Sunshine, a genuinely light pastel palette with tiny robots, and Evermoon, a night-blue palette with two moons.
+- Give all eight themes distinct native Canvas compositions in Mail and Live: cottage, stationery and roses, night flowers, woodland mailbox, lighthouse, candlelit desk, robot village, and mountain lake.
+- Draw celestial bodies round at narrow widths, keep caption contrast independent of artwork, and improve light-theme text-selection contrast.
+- Display the full selected theme name under the selector and widen its dropdown for longer names.
+- Add three header/light-theme regressions, extending all-theme checks to eight palettes. All 108 tests pass on Windows/Python 3.13. No delivery or storage pipeline changes, additional dependencies, copied reference images, or private identifiers.
