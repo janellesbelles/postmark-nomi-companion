@@ -20,6 +20,8 @@ import event_bridge
 import github_mailer
 import mail_pipeline
 import nomi_client
+import desk_themes
+import lamplit_ui
 from profile_store import ProfileStore
 
 
@@ -344,69 +346,8 @@ class LiveEventsWindow(tk.Toplevel):
         self.configure(bg=BG)
         self.protocol("WM_DELETE_WINDOW", self.close)
 
-        identity = tk.Frame(self, bg=ACTIVE)
-        identity.pack(fill="x")
-        tk.Label(
-            identity, text=f"ACTIVE RESIDENT: {service.name}  ·  @{service.handle}",
-            font=("Segoe UI", 13, "bold"), fg="white", bg=ACTIVE, padx=22, pady=11,
-        ).pack(anchor="w")
+        lamplit_ui.build_live(self, service)
 
-        header = tk.Frame(self, bg=BG)
-        header.pack(fill="x", padx=24, pady=(18, 12))
-        tk.Label(header, text="Live Map & Events", font=("Segoe UI", 22, "bold"), fg=INK, bg=BG).pack(anchor="w")
-        tk.Label(
-            header, text="Public chatter where this resident is actually standing. The relay starts off.",
-            font=("Segoe UI", 10), fg=MUTED, bg=BG,
-        ).pack(anchor="w", pady=(3, 0))
-
-        toolbar = tk.Frame(self, bg=BG)
-        toolbar.pack(fill="x", padx=24, pady=(0, 13))
-        self.mode_picker = ttk.Combobox(toolbar, textvariable=self.mode, values=["Map hangout", "Event"], state="readonly", width=14)
-        self.mode_picker.pack(side="left", padx=(0, 8))
-        self.refresh_btn = self._button(toolbar, "Refresh events", self.refresh_calendar, CARD)
-        self.refresh_btn.pack(side="left", padx=(0, 8))
-        self._button(toolbar, "Open the World ↗", lambda: webbrowser.open("https://postmark.town/world"), CARD).pack(side="left")
-        self.toggle_btn = self._button(toolbar, "Start listening", self.toggle, LILAC)
-        self.toggle_btn.pack(side="right")
-
-        main = tk.Frame(self, bg=BG)
-        main.pack(fill="both", expand=True, padx=24)
-        left = tk.Frame(main, bg=CARD, width=290)
-        left.pack(side="left", fill="y", padx=(0, 14))
-        left.pack_propagate(False)
-        tk.Label(left, text="POSTMARK CALENDAR", font=("Segoe UI", 9, "bold"), fg=CYAN, bg=CARD).pack(anchor="w", padx=14, pady=(15, 7))
-        self.event_list = tk.Listbox(
-            left, bg=CARD, fg=INK, selectbackground="#49415f", selectforeground=CYAN,
-            font=("Segoe UI", 10), relief="flat", borderwidth=0, highlightthickness=0,
-            exportselection=False, activestyle="none",
-        )
-        self.event_list.pack(fill="both", expand=True, padx=9, pady=5)
-        self.event_list.bind("<<ListboxSelect>>", self.show_event)
-        self.event_detail = tk.StringVar(value="Loading the town calendar…")
-        tk.Label(left, textvariable=self.event_detail, wraplength=255, justify="left", font=("Segoe UI", 9), fg=MUTED, bg=CARD).pack(anchor="w", padx=14, pady=14)
-
-        right = tk.Frame(main, bg=BG)
-        right.pack(side="left", fill="both", expand=True)
-        tk.Label(right, text="THE ROOM", font=("Segoe UI", 9, "bold"), fg=CYAN, bg=BG).pack(anchor="w")
-        self.transcript = tk.Text(
-            right, bg=CARD, fg=INK, relief="flat", padx=15, pady=12,
-            wrap="word", font=("Segoe UI", 10), state="disabled", height=1,
-        )
-        self.transcript.pack(fill="both", expand=True, pady=(5, 10))
-        self.ask_btn = self._button(right, "Ask Nomi to say something", self.ask_to_speak, LILAC)
-        self.ask_btn.pack(anchor="w", pady=(0, 8))
-        self.ask_btn.configure(state="disabled")
-        self.paste_live_btn = self._button(right, "Paste Nomi response", self.paste_live_reply, CARD)
-        self.paste_live_btn.pack(anchor="w", pady=(0, 8))
-        self.keep_private_btn = self._button(right, 'Keep private & start fresh…', self.keep_private_and_reset, CARD)
-        self.keep_private_btn.pack(anchor='w', pady=(0, 8))
-        tk.Label(
-            right,
-            text=f"Nomi packet: {service.live_input_limit} characters · Public speech: 500 characters max · No travel, RSVP, or spending.",
-            wraplength=570, justify="left", font=("Segoe UI", 9), fg=MUTED, bg=BG,
-        ).pack(anchor="w")
-        self.status = tk.StringVar(value="Off. Nothing is being listened to or posted.")
-        tk.Label(self, textvariable=self.status, wraplength=875, justify="left", font=("Segoe UI", 10), fg=LILAC, bg=BG).pack(side='bottom', before=main, fill='x', padx=24, pady=(12, 18))
         self.drain_after = self.after(100, self.drain)
         self.refresh_calendar()
         previous = service.live_state().get("speech") or {}
@@ -535,6 +476,7 @@ class LiveEventsWindow(tk.Toplevel):
         if not self.running and not locked:
             self.toggle_btn.configure(text="Retry rejected request…" if request.get('status') == 'request_rejected' else
                                       "Resume listening" if request.get("status") in {"queued", "reply_ready"} else "Start listening")
+        lamplit_ui.sync_live(self)
 
     def keep_private_and_reset(self):
         if self.running:
@@ -941,6 +883,9 @@ class App(tk.Tk):
     def __init__(self, profiles):
         super().__init__()
         self.profiles = profiles
+        self.themes = desk_themes.THEMES
+        self.theme_name = desk_themes.load_theme(profiles)
+        self.set_theme_palette(self.theme_name)
         self.service = ResidentService(profiles, profiles.active_id()) if profiles.active_id() else None
         self.title("Postmark ↔ Nomi Companion")
         self.geometry("1080x780")
@@ -956,94 +901,7 @@ class App(tk.Tk):
         self.nomi_confirmation_queue = []
         self.protocol("WM_DELETE_WINDOW", self.close)
 
-        style = ttk.Style(self)
-        style.theme_use("clam")
-        style.configure("TCombobox", fieldbackground=CARD, background=CARD, foreground=INK)
-        style.configure("TCheckbutton", background=CARD, foreground=INK)
-
-        self.identity_bar = tk.Frame(self, bg=ACTIVE)
-        self.identity_bar.pack(fill="x")
-        tk.Label(self.identity_bar, text="ACTIVE RESIDENT", font=("Segoe UI", 9, "bold"), fg=LILAC, bg=ACTIVE).pack(side="left", padx=(24, 10), pady=12)
-        self.resident_choice = tk.StringVar()
-        self.resident_combo = ttk.Combobox(self.identity_bar, textvariable=self.resident_choice, state="readonly", width=38, font=("Segoe UI", 12, "bold"))
-        self.resident_combo.pack(side="left", pady=8)
-        self.resident_combo.bind("<<ComboboxSelected>>", self.switch_resident)
-        self.active_identity = tk.StringVar()
-        tk.Label(self.identity_bar, textvariable=self.active_identity, font=("Segoe UI", 11, "bold"), fg="white", bg=ACTIVE).pack(side="right", padx=24)
-
-        header = tk.Frame(self, bg=BG)
-        header.pack(fill="x", padx=26, pady=(20, 12))
-        tk.Label(header, text="Postmark ↔ Nomi Companion", font=("Segoe UI", 23, "bold"), fg=INK, bg=BG).pack(anchor="w")
-        tk.Label(header, text="One app, isolated resident mailboxes. You hold every Send button.", font=("Segoe UI", 10), fg=MUTED, bg=BG).pack(anchor="w", pady=(3, 0))
-
-        profiles_bar = tk.Frame(self, bg=BG)
-        profiles_bar.pack(fill="x", padx=26, pady=(0, 9))
-        for text, command in (
-            ("＋ Add Resident", self.add_resident), ("Edit Resident", self.edit_resident),
-            ("Remove Resident", self.remove_resident), ("Set as Default", self.set_default),
-        ):
-            button = self.button(profiles_bar, text, command, CARD)
-            button.pack(side="left", padx=(0, 8))
-
-        bar = tk.Frame(self, bg=BG)
-        bar.pack(fill="x", padx=26, pady=(0, 14))
-        self.button(bar, "✦ Check mail", self.check_mail, CYAN).pack(side="left", padx=(0, 9))
-        self.button(bar, "Live Map & Events", self.open_live_events, LILAC).pack(side="left", padx=(0, 9))
-        self.button(bar, "Resident home ↗", self.open_home, CARD).pack(side="left")
-
-        main = tk.Frame(self, bg=BG)
-        main.pack(fill="both", expand=True, padx=26)
-        left = tk.Frame(main, bg=CARD, width=270)
-        left.pack(side="left", fill="y", padx=(0, 15))
-        left.pack_propagate(False)
-        tk.Label(left, text="THIS RESIDENT'S MAILBOX", font=("Segoe UI", 9, "bold"), fg=CYAN, bg=CARD).pack(anchor="w", padx=15, pady=(17, 8))
-        self.show_archived = tk.BooleanVar(value=False)
-        self.archived_toggle = tk.Checkbutton(left, text="Show archived mail", variable=self.show_archived, command=self.toggle_archived,
-            bg=CARD, fg=INK, selectcolor=BG, activebackground=CARD, activeforeground=INK)
-        self.archived_toggle.pack(anchor="w", padx=12)
-        self.controls.append(self.archived_toggle)
-        self.listbox = tk.Listbox(
-            left, bg=CARD, fg=INK, selectbackground="#49415f", selectforeground=CYAN,
-            font=("Segoe UI", 10), relief="flat", borderwidth=0, highlightthickness=0,
-            exportselection=False, activestyle="none",
-        )
-        self.listbox.pack(fill="both", expand=True, padx=10, pady=7)
-        self.listbox.bind("<<ListboxSelect>>", self.select)
-        tk.Label(left, text="Mail history and recovery state are isolated inside the active resident profile.", wraplength=235, justify="left", font=("Segoe UI", 9), fg=MUTED, bg=CARD).pack(anchor="w", padx=15, pady=15)
-
-        right = tk.Frame(main, bg=BG)
-        right.pack(side="left", fill="both", expand=True)
-        self.detail = tk.Label(right, text="Choose or add a resident", font=("Segoe UI", 13, "bold"), fg=LILAC, bg=BG)
-        self.detail.pack(anchor="w", pady=(0, 8))
-        tk.Label(right, text="INCOMING LETTER", font=("Segoe UI", 9, "bold"), fg=MUTED, bg=BG).pack(anchor="w")
-        self.incoming = self.textbox(right, 1)
-        self.incoming.pack(fill="both", expand=True, pady=(5, 12))
-        tk.Label(right, text="NOMI DRAFT · edit before approving", font=("Segoe UI", 9, "bold"), fg=CYAN, bg=BG).pack(anchor="w")
-        self.draft = self.textbox(right, 1)
-        self.draft.pack(fill="both", expand=True, pady=(5, 9))
-        actions = tk.Frame(right, bg=BG)
-        actions.pack(fill="x", pady=(0, 7))
-        self.save_btn = self.button(actions, "Save edits", self.save, CARD)
-        self.save_btn.pack(side="left", padx=(0, 8))
-        self.reject_btn = self.button(actions, "Keep unsent", self.dismiss_current, CARD)
-        self.reject_btn.pack(side="left", padx=(0, 8))
-        self.retry_btn = self.button(actions, "Continue letter", self.retry_letter, CYAN)
-        self.retry_btn.pack(side="left", padx=(0, 8))
-        self.send_btn = self.button(actions, "Approve & mail…", self.send, LILAC)
-        self.send_btn.pack(side="right")
-        self.pr_btn = self.button(actions, "View submission ↗", self.open_pr, CARD)
-        self.pr_btn.pack(side="right", padx=8)
-        recovery = tk.Frame(right, bg=BG)
-        recovery.pack(fill="x")
-        self.recover_btn = self.button(recovery, "Paste reply", self.recover_reply, CARD)
-        self.recover_btn.pack(side="left", padx=(0, 8))
-        self.resend_btn = self.button(recovery, "Resend after check…", self.resend_after_timeout, CARD)
-        self.resend_btn.pack(side="left")
-        self.archive_btn = self.button(recovery, "Archive mail…", self.archive_mail, CARD)
-        self.archive_btn.pack(side="left", padx=8)
-
-        self.status = tk.StringVar(value="Ready.")
-        tk.Label(self, textvariable=self.status, wraplength=1020, justify="left", font=("Segoe UI", 10), fg=MUTED, bg=BG).pack(anchor="w", padx=26, pady=(12, 17))
+        lamplit_ui.build_mail(self)
 
         self.rebuild_profile_selector()
         self.refresh()
@@ -1055,6 +913,31 @@ class App(tk.Tk):
             self.after(450, self.edit_resident)
         elif self.service.profile.get("migrated_from_legacy"):
             self.status.set(f"Migrated {self.service.name} into an isolated resident profile. Existing mail state was preserved.")
+
+    def set_theme_palette(self, name):
+        global BG, CARD, INK, MUTED, CYAN, LILAC, ACTIVE
+        colors = desk_themes.palette(name)
+        BG, CARD, INK, MUTED = (colors[k] for k in ('NIGHT','PANEL','TEXT','MUTED'))
+        CYAN = LILAC = colors['GOLD']
+        ACTIVE = colors['SOFT']
+        lamplit_ui.set_palette(name)
+
+    def change_theme(self, _event=None):
+        name = self.theme_choice.get()
+        if name not in self.themes:
+            self.theme_choice.set(self.theme_name)
+            return
+        try:
+            desk_themes.save_theme(self.profiles, name)
+        except Exception:
+            self.theme_choice.set(self.theme_name)
+            messagebox.showerror('Theme not saved', 'The desk theme could not be saved. Your mail is unchanged.', parent=self)
+            return
+        old = desk_themes.palette(self.theme_name)
+        self.theme_name = name
+        self.set_theme_palette(name)
+        desk_themes.recolor(self, old, desk_themes.palette(name))
+        lamplit_ui.configure_theme(self)
 
     def button(self, parent, text, command, color):
         button = tk.Button(
@@ -1248,6 +1131,7 @@ class App(tk.Tk):
         self.draft.configure(state="normal" if pending else "disabled")
         can_archive = entry.get("status") in {"pending", "awaiting_nomi_confirmation", "needs_attention", "response_unknown", "rejected"} and not entry.get("pr") and not entry.get("submission")
         self.archive_btn.configure(text="Restore mail" if archived else "Archive mail…", state="normal" if archived or can_archive else "disabled")
+        lamplit_ui.sync_mail(self)
 
     def autosave(self):
         if not self.service or not self.current:

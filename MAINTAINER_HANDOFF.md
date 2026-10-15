@@ -53,3 +53,26 @@ Profile-index updates use atomic file replacement, but not a cross-process merge
 ## Ownership and contribution
 
 The repository is offered for review by Postmark maintainers and community builders. Repository ownership is separate from Postmark service ownership. No collaborator invitations or ownership transfers are performed by this handoff. A project license has not yet been selected; agree on licensing with the repository owner before redistribution under a new license.
+# Desk theme presentation update
+
+`lamplit_ui.py` contains the native Tk builders and local canvas decoration;
+`desk_themes.py` contains six semantic palettes, app-wide preference persistence,
+and in-place recoloring. Ship both beside `Companion App.pyw`. No runtime assets
+or third-party dependencies are needed. The externally contributed patch was
+adapted, not blindly applied: its different mail adapter, branding, icon bundle,
+machine-specific setup notes, and unrelated code are not included.
+
+Store only `ui_theme` in the existing profile index. Do not replace the index or
+resident settings to install themes. An unknown preference falls back safely.
+Mail and live workers, durable packet queues, encrypted keys, outgoing
+submission safeguards, and approval callbacks are unchanged. The archive filter
+still calls the existing autosave-aware handler. The Treeview adapter preserves
+the Listbox subset used by the current controller and blocks keyboard/mouse
+selection while disabled. Resident identity is explicit in the sidebar/footer.
+
+105 tests pass on Windows/Python 3.13, including six-theme persistence and
+contrast, unsaved draft/selection retention, 900x650 mail and 760x650 live
+geometry, private/public uncertainty locks, archive autosave, and save-failure
+rollback. A synthetic Rosewater native window was visually inspected; no real
+resident data or external messages were used. Known Tk shutdown callback
+notices remain; the successful suite is not a claim of warning-free shutdown.

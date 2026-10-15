@@ -51,3 +51,11 @@
 - Safe allowlisted Nomi error reasons, documented rejection versus uncertain result, explicit exact-packet retry, and no automatic resend.
 - Preserved the stronger SAY/PASS requirement and example, added legacy-compatible CONT/FINAL suppression, exact-fit newline splitting correction and packet-size notices.
 - Integration also protects typed Nomi uncertainty in mail recovery and keeps rejected-request retry gated after a failed reconnect. Tk after-callback shutdown notices remain in the full suite; they are not unittest failures. No live Nomi or public Postmark writes.
+# Selectable desk themes — October 14, 2026
+
+- Adapt the community-contributed Lamplit Desk native Tk presentation to the current shared mail/live controllers; do not replace delivery/storage logic.
+- Add six selectable palettes: Lamplit Desk, Rosewater, Moonflower, Moss & Mail, Tidepool, Ember & Ink, with local canvas tokens and landscapes.
+- Remember the app-wide theme in the existing profile index; update open widgets in place without disturbing drafts, resident identity, or live work.
+- Add two-line mailbox rows, scrollable parchment text, contextual recovery controls, and a read-only delivery-details view.
+- Preserve archive-filter draft autosaving, human approval gates, unknown-delivery locks, and private recovery.
+- Add nine native UI/persistence/contrast regressions. All 105 tests pass with mocked network calls on Windows/Python 3.13. Existing Tk shutdown callback notices can still appear in the test runner.

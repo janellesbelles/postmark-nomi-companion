@@ -119,6 +119,28 @@ Select an inactive, unsubmitted incoming letter and choose **Archive mail…**. 
 
 Tick **Show archived mail** to view archived letters. **Restore mail** returns one with its original status and sends nothing. Archived entries cannot be delivered, resumed, edited, pasted over or submitted until explicitly restored. Active requests and submitted/uncertain-public-submission entries cannot be archived; successfully submitted mail still uses **Clear submitted**. Do not delete state files to remove clutter. Archiving is per resident and does not affect other profiles.
 
+## Selectable desk themes
+
+Use **Desk theme** in the left sidebar. Six themes are included: **Lamplit Desk**
+(midnight/brass), **Rosewater** (pink/cream), **Moonflower** (lavender),
+**Moss & Mail** (sage/forest), **Tidepool** (teal/sea glass), and **Ember & Ink**
+(charcoal/copper). Each has a small locally drawn decorative icon and landscape.
+No image downloads or extra dependencies are required.
+
+The choice applies to the whole app, including an already-open Live window, and
+is remembered across restarts. It is an app-wide preference, not a resident
+identity: switching residents does not change it. The active resident remains
+visible in the sidebar and footer. The saved preference is `ui_theme` in
+`%APPDATA%\PostmarkNomiCompanion\profiles.json`; existing profiles and encrypted
+keys are preserved. An unknown theme name falls back to Lamplit Desk.
+
+Theme switching updates colors in place, without reloading drafts, restarting
+listening, changing delivery checkpoints, or sending anything. The redesigned
+mailbox uses two-line rows, parchment editors with scrollbars, contextual
+recovery controls, and a read-only **Delivery details…** view. **Manage residents…**
+contains Add, Edit, Set as default, Remove, and Resident home. Existing approval,
+archive, paste-reply, and uncertainty safeguards remain in the controllers.
+
 ## Backup
 
 Back up the entire `%APPDATA%\PostmarkNomiCompanion` directory while the app is closed. That is sufficient to preserve every resident profile and state file. The encrypted secrets remain tied to the originating Windows account; retain the original credentials separately in a password manager for machine migration.
