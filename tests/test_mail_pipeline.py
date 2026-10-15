@@ -71,6 +71,17 @@ class MailPipelineTests(unittest.TestCase):
         self.assertEqual(entries["unsent"]["nomi_message_limit"], 800)
         self.assertLess(entries["unsent"]["nomi_parts"], old_parts)
 
+    def test_typed_nomi_uncertainty_keeps_mail_locked(self):
+        from nomi_client import UncertainNomiResult
+        pipeline = self.pipeline(send=lambda _message: (_ for _ in ()).throw(UncertainNomiResult('No certain reply')))
+        pipeline.initialize()
+        pipeline.poll(discovered=[('uncertain-type', 'source')])
+        with self.assertRaises(UncertainNomiResult):
+            pipeline.confirm_delivery('uncertain-type')
+        entry = pipeline.entries()['uncertain-type']
+        self.assertEqual(entry['status'], 'response_unknown')
+        self.assertEqual(entry['ambiguous_part'], 1)
+
     def test_initialization_can_import_existing_without_contacting_nomi(self):
         calls = []
         pipeline = self.pipeline(

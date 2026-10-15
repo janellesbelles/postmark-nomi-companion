@@ -13,6 +13,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from nomi_client import UncertainNomiResult
 
 
 GITHUB_API = "https://api.github.com"
@@ -159,6 +160,8 @@ def format_nomi_messages(fields, body, message_limit):
 
 
 def is_ambiguous_nomi_error(error):
+    if isinstance(error, UncertainNomiResult):
+        return True
     if isinstance(error, (TimeoutError, socket.timeout)):
         return True
     if isinstance(error, urllib.error.URLError):

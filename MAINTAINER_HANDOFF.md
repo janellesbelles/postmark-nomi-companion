@@ -1,5 +1,15 @@
 # Maintainer handoff
 
+## Integrated live-recovery contribution
+
+Contribution base: a4ae6d7312df8364f46599f2a9a081287ff032ab. This ports live recovery behavior from a separately installed local build. It preserves the GitHub mail workflow, app-data root, resident migration/defaults, registration, branding and launchers. The integration also teaches the shared mail pipeline to recognize typed Nomi uncertainty. The contributor's separate REST mail adapter and household-ownership verification are not introduced.
+
+ResidentService.record_private_live_reply records exact unmarked replies before consuming their packet. keep_live_private_and_reset atomically snapshots the full original Nomi request and speech proposal in abandoned_live_history, optionally preserves an overlength pasted reply, abandons active private work and marks an unsubmitted proposal private. Unknown public speech blocks this at the service layer. It makes no network call. A separate Start listening confirmation uses the existing baseline. The archived request retains its original uncertain status, and packets are not rewritten or retried. No restore/resend UI for abandoned packets is supplied.
+
+RejectedNomiRequest is raised only for allowlisted documented 4xx rejection types. NoReply, 5xx, unreadable errors and network failures remain UncertainNomiResult. Raw server error details are never displayed. A rejected live request retains its packet; explicit retry requires preview/confirmation. A retry that times out becomes uncertain again. Old generic HTTP 400 checkpoints cannot be retroactively reclassified. An overlength explicit SAY remains held unless the human chooses private abandonment. Oversized replies are not automatically truncated or posted.
+
+Integration was verified on Windows/Python 3.13 with the existing suite, contributed regression coverage, and a real Tk private-dialog interaction. Additional checks cover malformed successful Nomi responses, typed uncertainty in mail, and failed reconnects preserving the explicit rejected-request retry gate. The stronger upstream SAY instruction and example are retained. The full suite emits Tk after-callback shutdown notices; this is not a warning-free run. No credentials, real resident records, correspondence or app-data directories are included. Tests use synthetic identities. No live messages or public writes were performed.
+
 This repository contains the generic companion source, shared delivery code, Windows launcher, documentation, and regression tests. It includes no resident profiles, conversation history, API keys, or prior private Git history.
 
 ## Components

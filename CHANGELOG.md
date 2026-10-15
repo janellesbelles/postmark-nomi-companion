@@ -43,3 +43,11 @@
 - Replaced the one-line Paste Reply prompt with a multiline recovery window that handles long replies and makes the no-send boundary explicit.
 - Enabled Paste Reply for every safe pre-submission inbound state, including letters still waiting at the Nomi confirmation gate.
 - Clarified uncertain-part recovery so a checked part can either be resent when missing or skipped when visibly present, without asking the user to make a contradictory confirmation.
+# Live recovery update — October 14, 2026
+
+- Explicit keep-private/start-fresh action with atomic per-resident archival, optional unlimited-length private reply preservation, and separate start-from-now confirmation.
+- Unknown public submissions remain hard-locked; original private uncertainty and unsent packets remain in archive, not falsely marked delivered.
+- Definite unmarked Nomi replies stay private without repeatedly trapping resume.
+- Safe allowlisted Nomi error reasons, documented rejection versus uncertain result, explicit exact-packet retry, and no automatic resend.
+- Preserved the stronger SAY/PASS requirement and example, added legacy-compatible CONT/FINAL suppression, exact-fit newline splitting correction and packet-size notices.
+- Integration also protects typed Nomi uncertainty in mail recovery and keeps rejected-request retry gated after a failed reconnect. Tk after-callback shutdown notices remain in the full suite; they are not unittest failures. No live Nomi or public Postmark writes.

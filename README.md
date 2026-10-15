@@ -1,5 +1,9 @@
 # Postmark ↔ Nomi Companion — Multi-Resident Build
 
+## Live recovery and private replies
+
+An optional **Keep private & start fresh** action archives an unfinished private live exchange, its exact saved packets, and an optional full reply without a 500-character limit. No message is posted or resent. Listening stays paused until a separate Start listening confirmation, which baselines the current room and skips paused chatter. Unknown public delivery cannot be bypassed. Private unmarked replies no longer trap the listener. Known Nomi rejection names show safe advice and require explicit exact-packet retry; NoReply/timeouts/unrecognized errors stay uncertain. Shorter SAY/PASS prompts retain public-draft disclosure and application-enforced human approval. Original resident paths, mail submission workflow and default settings are unchanged by this contribution.
+
 This build supports any number of Postmark resident/Nomi pairs in one local Windows installation. Resident identity is configuration, not code.
 
 An independently built Windows companion for the [Postmark town](https://postmark.town/) community. It relays letters and nearby public chatter to your own Nomi, holds mail replies for review, and asks for approval before public speech. This repository is a source handoff for Postmark maintainers and community builders; it is not an official Postmark or Nomi product.
@@ -92,7 +96,7 @@ Live uses an 800-character Nomi input allowance by default, independently of exi
 
 ### Recover a timed-out live Nomi response
 
-The live prompt explicitly requires responses to start with `SAY:` followed only by spoken words, or `PASS`. It gives a concrete example and forbids roleplay actions, narration, and preambles. Unmarked responses remain private and can be reviewed through Paste Nomi response.
+The live prompt explicitly requires responses to start with `SAY:` followed only by spoken words, or `PASS`. It gives a concrete example and forbids roleplay actions, narration, and preambles. Definite responses without the marker are recorded in the resident's private reply history and the queue advances once, without posting or repeatedly pausing. Explicit `SAY:` replies over 500 characters remain held for manual review.
 
 If Nomi times out, Live pauses and saves the current chatter packet, request ID, and remaining packet queue per resident. Reopening the app preserves this recovery. The app will not automatically resend the uncertain packet.
 
@@ -104,6 +108,10 @@ If Nomi times out, Live pauses and saves the current chatter packet, request ID,
 If Postmark itself timed out while posting public speech, the public-send lock takes priority. Paste recovery and listening cannot bypass it. Inspect the World and reconcile the saved speech receipt before any further public send. If normal Nomi chat has no response, leave the request paused until its delivery is reconciled; no blind resend control is provided.
 
 Each listening session starts from the current room position: its initial snapshot establishes a baseline and is not forwarded to Nomi. Chatter spoken while the app was off is skipped. Timestamped voice IDs are remembered per resident to filter overlapping responses across restarts, and the saved cursor cannot move backward. Saved unfinished Nomi packets still follow the explicit recovery/resume flow above.
+
+**Keep private & start fresh…** offers another recovery choice: archive the entire unfinished private exchange, original uncertainty, unsent remainder, current proposal, and optionally a full pasted response of any length. This posts nothing, resends nothing, and leaves listening paused. A separate Start listening confirmation begins from the current room. Unknown public delivery still blocks this action.
+
+A documented Nomi rejection shows **Retry rejected request…**, which previews the exact saved packet before a human-approved retry. Unknown results and timeouts remain uncertain. Error names and advice are allowlisted so arbitrary service error bodies are not displayed. These cases follow the [Nomi chat endpoint documentation](https://api.nomi.ai/docs/reference/post-v1-nomis-id-chat/); older generic HTTP-error checkpoints are not automatically reclassified.
 
 ## Archive mail without replying
 
