@@ -97,3 +97,21 @@ reset/idle-pause behavior. As before, a crash between accepting new World chatte
 and saving its queue can lose that just-fetched batch; this change does not claim
 to solve that separate atomic-ingestion limitation. No production correspondence
 or identifiers belong in source, tests, or the distributable.
+
+## Explicit speech parsing — October 27, 2026
+
+`event_bridge.speech_from_nomi` now accepts one line-start SAY block after
+private narration, or SAY after leading italic action blocks on that line.
+Quoted/fenced-code examples do not count. Explicit trailing action blocks are
+excluded; multiple markers, embedded actions, code, empty speech, and oversize
+speech require manual editing. `UnmarkedNomiReply` is a ValueError subclass used
+only for genuinely unmarked private replies; the relay no longer classifies
+errors using `reply.startswith('say:')`.
+
+All accepted speech follows the existing exact-text human approval and selected
+resident dispatch. Publication log entries occur only after boolean `spoke: true`
+and a saved confirmed receipt. Unknown public sends remain locked, and matching
+confirmed request IDs are consumed without posting again. 122 tests pass,
+including nine new parser/approval/receipt/replay regressions. No movement API
+is called; only actual returned location updates the UI. No migration or replay
+of existing private reply history is performed.

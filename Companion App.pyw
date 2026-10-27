@@ -753,7 +753,7 @@ class LiveEventsWindow(tk.Toplevel):
                     try:
                         speech = event_bridge.speech_from_nomi(reply)
                     except ValueError as error:
-                        if not (reply or '').strip().casefold().startswith('say:'):
+                        if isinstance(error, event_bridge.UnmarkedNomiReply):
                             # Definite unmarked responses stay private; no resend
                             # and no public proposal. Consume only this packet.
                             self.service.record_private_live_reply(request, reply)
@@ -865,7 +865,7 @@ class LiveEventsWindow(tk.Toplevel):
                 elif kind == "place":
                     self.log(f"Listening at {value}. Public speech uses this resident's actual map location.")
                 elif kind == "spoke":
-                    self.log(f"{self.service.name}: {value}")
+                    self.log(f"Published as {self.service.name} / @{self.service.handle} (receipt confirmed): {value}")
                 elif kind in ("quiet", "private"):
                     self.log(value)
                 elif kind == "relay_error":

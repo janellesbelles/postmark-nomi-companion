@@ -73,3 +73,11 @@
 - Preserve continuation intent durably through reply consumption and restart. An explicit idle pause/close ends it; unfinished requests remain protected.
 - Retain fresh-session history skipping, explicit rejected-request approval/reconnect checks, and all unknown Nomi/public-send locks. Keep-private reset still starts fresh.
 - Add five mocked recovery/catch-up regressions. All 113 tests pass on Windows/Python 3.13; existing Tk teardown callback notices remain.
+
+## Explicit public speech routing — October 27, 2026
+
+- Recognize one supported SAY block after private narration, including leading italic action blocks on the same line. Do not publish the surrounding actions.
+- Distinguish an unmarked private reply from malformed marked public intent; hold ambiguous, empty, mixed-action, or oversized speech for manual review.
+- Preserve the selected resident's public approval, nonce, unknown-send lock, and confirmed-request replay guard. Require boolean `spoke: true` and label publication only after its confirmed receipt.
+- Add nine mocked parser/routing/publication regressions. All 122 tests pass on Windows/Python 3.13; known Tk teardown callback notices remain.
+- Clarify that movement narration invokes no travel and changes no actual location. Previously private replies are not replayed automatically.

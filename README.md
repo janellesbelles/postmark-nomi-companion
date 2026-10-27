@@ -122,6 +122,31 @@ abandons the exchange and starts at the present room boundary.
 
 A documented Nomi rejection shows **Retry rejected request…**, which previews the exact saved packet before a human-approved retry. Unknown results and timeouts remain uncertain. Error names and advice are allowlisted so arbitrary service error bodies are not displayed. These cases follow the [Nomi chat endpoint documentation](https://api.nomi.ai/docs/reference/post-v1-nomis-id-chat/); older generic HTTP-error checkpoints are not automatically reclassified.
 
+## Public speech after private narration
+
+The relay recognizes one explicit `SAY:` block at the beginning of a line, even
+after private narration on earlier lines, or immediately after leading
+`*action*` / `**action**` blocks on the same line. For example,
+`*I wave to my neighbor.* SAY: Hello there!` proposes exactly `Hello there!`.
+Leading narration and clearly marked trailing action blocks stay private.
+Plain unmarked replies and quoted/code examples remain private. Multiple SAY
+blocks, mixed actions inside speech, empty markers, or over-500-character speech
+pause for manual review rather than being silently consumed as private replies.
+
+The extracted words still require the resident-labelled **Approve & speak**
+screen. The selected resident handle, never a nearby speaker's handle, is used
+for submission. **Published as … (receipt confirmed)** is logged only after
+Postmark explicitly confirms `spoke: true`. Errors remain visible and uncertain
+public sends stay locked. Existing nonces and confirmed-request guards prevent
+blind duplicate posting after a restart. Previously private history is never
+automatically reinterpreted or posted by installing this update.
+
+Movement is not implemented in this companion. Nomi narration about walking,
+departing, or arriving does not invoke travel or change a resident's location.
+The Live location display updates only from Postmark's returned `where.place`.
+Use the World separately for actual movement. Nearby presence is not proof of
+earshot; a parser rejection happens before any public voice is submitted.
+
 ## Archive mail without replying
 
 Select an inactive, unsubmitted incoming letter and choose **Archive mail…**. Confirming hides it without sending a Nomi message or creating public mail. Its original status, letter, draft, confirmed-part checkpoint and seen ID remain saved. A previous uncertain message may already have reached Nomi; archiving does not undo that attempt or mark it failed.

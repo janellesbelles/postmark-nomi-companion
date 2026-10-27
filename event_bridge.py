@@ -100,7 +100,7 @@ def speak(household_key, resident_handle, text, *, since=None, nonce=None):
         timeout=45,
     )
     _raise_bounce(result)
-    if not result.get("spoke"):
+    if result.get("spoke") is not True:
         raise RuntimeError(
             "Postmark did not confirm speech. Do not automatically resend an uncertain request."
         )
@@ -200,15 +200,54 @@ def partial_chatter_packet(packet):
     return bool(re.match(r"\APostmark chat[^\n]*\n(?:Scene: [^\n]*\n)?(?:Reply )?PASS until FINAL\.\n[^\n]* \[\d+/\d+\] CONT: ", packet))
 
 
+class UnmarkedNomiReply(ValueError):
+    """No supported, explicit public-speech marker: keep the response private."""
+
+
 def speech_from_nomi(reply):
+    """Extract one explicit SAY block, never its surrounding private actions.
+
+    Supported: SAY at a line start, or following leading *action* blocks on
+    that line. Quoted/code examples are not commands. Multiple blocks, embedded
+    actions, and invalid lengths need human editing, not silent private routing.
+    """
     text = (reply or "").strip()
     if not text or text.casefold() in {"pass", "[pass]", "quiet", "stay quiet"}:
         return None
-    if not text.casefold().startswith("say:"):
-        raise ValueError("The reply was not marked SAY:, so it must remain private.")
-    speech = text[4:].strip()
+    action = r'(?:\*\*[^*\n]+\*\*|\*[^*\n]+\*)[ \t]*'
+    marker = re.compile(r'^[ \t]*(?:'+action+r')*SAY:[ \t]*', re.IGNORECASE)
+    candidates = []
+    offset = 0
+    fence = None
+    for line in text.splitlines(keepends=True):
+        stripped = line.lstrip()
+        fence_match = re.match(r'(`{3,}|~{3,})', stripped)
+        if fence_match:
+            token = fence_match.group(1)[0]
+            if fence is None:
+                fence = token
+            elif fence == token:
+                fence = None
+        elif fence is None and not stripped.startswith('>'):
+            match = marker.match(line)
+            if match:
+                candidates.append(offset+match.end())
+        offset += len(line)
+    if not candidates:
+        raise UnmarkedNomiReply('No supported SAY: marker was found; the response stays private.')
+    if len(candidates) != 1:
+        raise ValueError('More than one SAY: block was found. Paste one exact public response for review.')
+    speech = text[candidates[0]:].strip()
+    # Explicit trailing roleplay actions are private, even on the same line.
+    while True:
+        tail = re.search(r'\s+(?:\*\*[^*]+\*\*|\*[^*]+\*)\s*$', speech)
+        if not tail:
+            break
+        speech = speech[:tail.start()].rstrip()
+    if '*' in speech or '```' in speech or '~~~' in speech or re.search(r'(?m)^\s*>', speech):
+        raise ValueError('The SAY: block mixes speech with actions, code, or quotations. Paste only the public words.')
     if not speech:
-        return None
+        raise ValueError('SAY: has no public words. Paste the intended words, or PASS.')
     if len(speech) > SPEECH_MAX:
         raise ValueError(
             f"The drafted speech is {len(speech)} characters; Postmark allows {SPEECH_MAX}."
