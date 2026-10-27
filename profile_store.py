@@ -172,6 +172,53 @@ class ProfileStore:
     def event_state_path(self, profile_id):
         return self.profile_dir(profile_id) / "event-state.json"
 
+    def assert_mail_history_safe(self, profile_id, key=None):
+        """Fail closed when a same-resident folder protects mail this copy lost.
+
+        Never auto-merge drafts, infer delivery, or touch another resident. A
+        known receipt or uncertain outgoing attempt must not become fresh mail
+        just because the profile index points at an older local namespace.
+        """
+        profile = self.profile(profile_id)
+        handle = str(profile.get('handle') or '').strip().casefold()
+        if not handle:
+            return
+        current_path = self.mail_state_path(profile_id)
+        current = self._read(current_path) if current_path.exists() else {}
+        seen = set(current.get('seen') or [])
+        entries = current.get('letters') or {}
+        protected = {'pr_open', 'submitting', 'needs_send_check'}
+        for directory in self.residents_root.iterdir():
+            if not directory.is_dir() or directory.name == profile_id:
+                continue
+            config_path = directory / 'settings.json'
+            if not config_path.exists():
+                continue
+            try:
+                other_handle = str(self._read(config_path).get('resident_handle') or '').strip().casefold()
+            except (ValueError, OSError):
+                continue  # an unreadable unrelated configuration cannot identify a duplicate
+            if other_handle != handle:
+                continue
+            other_path = directory / 'mail-state.json'
+            if not other_path.exists():
+                continue
+            try:
+                other = self._read(other_path)
+            except (ValueError, OSError):
+                raise ValueError('Another local copy of this resident has unreadable mail history. Back up and reconcile it before mail delivery or submission.') from None
+            for letter_key, historical in (other.get('letters') or {}).items():
+                if key is not None and letter_key != key:
+                    continue
+                if not (historical.get('pr') or historical.get('status') in protected or historical.get('cleared_from_mailbox_at')):
+                    continue
+                active = entries.get(letter_key) or {}
+                same_receipt = bool(historical.get('pr')) and active.get('pr') == historical['pr'] and active.get('status') == 'pr_open'
+                still_locked = not historical.get('pr') and active.get('status') in protected
+                seen_without_entry = letter_key in seen and letter_key not in entries
+                if letter_key not in seen or not (same_receipt or still_locked or seen_without_entry):
+                    raise ValueError('Another local copy of this resident records completed or uncertain outgoing mail that this profile does not preserve. Mail delivery/submission is blocked to prevent a duplicate. Back up and reconcile the resident mail histories; do not reset the inbox.')
+
     def read_settings(self, profile_id):
         path = self.settings_path(profile_id)
         return self._read(path) if path.exists() else {}

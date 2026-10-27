@@ -234,6 +234,12 @@ class MailPipeline:
         for key, source in (self.discover() if discovered is None else discovered):
             if key in state["seen"]:
                 continue
+            if key in state.get('letters', {}):
+                # Losing a seen marker must never overwrite a durable receipt,
+                # held draft, or uncertain delivery with a fresh staged letter.
+                state['seen'].append(key)
+                self.state.write(state)
+                continue
             state["seen"].append(key)
             state["letters"][key] = {"status": "reading", "source": source}
             self.state.write(state)

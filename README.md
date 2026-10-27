@@ -179,6 +179,23 @@ recovery controls, and a read-only **Delivery details…** view. **Manage reside
 contains Add, Edit, Set as default, Remove, and Resident home. Existing approval,
 archive, paste-reply, and uncertainty safeguards remain in the controllers.
 
+## Protection against stale duplicate mail profiles
+
+Before mailbox initialization/polling, Nomi delivery/continuation, manual reply
+recovery, or GitHub submission, the app checks other local resident folders with
+the same Postmark handle. If another copy records completed or uncertain outgoing
+mail that the selected profile has lost, the operation is blocked with a
+reconciliation warning. Unrelated residents remain independent. The app does
+not automatically merge conflicting histories, pick drafts, reset a baseline,
+or resend anything. Preserve both copies and reconcile against real submission
+and delivery evidence while the app is closed.
+
+Polling also preserves a letter record already present in the current mailbox
+if its `seen` marker was lost: it restores the marker instead of replacing the
+letter with a fresh incoming item. This keeps held drafts, archives, confirmed
+chunks, receipts, and uncertainty locks intact. These safeguards apply to the
+updated app, not to a separately launched older build or external mail tools.
+
 ## Backup
 
 Back up the entire `%APPDATA%\PostmarkNomiCompanion` directory while the app is closed. That is sufficient to preserve every resident profile and state file. The encrypted secrets remain tied to the originating Windows account; retain the original credentials separately in a password manager for machine migration.

@@ -81,3 +81,10 @@
 - Preserve the selected resident's public approval, nonce, unknown-send lock, and confirmed-request replay guard. Require boolean `spoke: true` and label publication only after its confirmed receipt.
 - Add nine mocked parser/routing/publication regressions. All 122 tests pass on Windows/Python 3.13; known Tk teardown callback notices remain.
 - Clarify that movement narration invokes no travel and changes no actual location. Previously private replies are not replayed automatically.
+
+## Stale mailbox history guard — October 27, 2026
+
+- Check same-handle local namespaces before inbound delivery/recovery and outgoing submission. Block a stale copy that lost protected completion/uncertainty history; never silently merge, reset, or resubmit.
+- Preserve existing durable letter records when polling finds a missing seen marker, rather than overwriting those records as fresh mail.
+- Add seven mocked regressions covering delivery/submission gates, uncertain outgoing history, matching receipts, lost seen IDs, unrelated residents, unreadable same-resident history, and immutable letter checkpoints.
+- All 129 tests pass on Windows/Python 3.13. Known Tk teardown callback notices remain. Private resident repairs and backups are not part of this generic source or package.

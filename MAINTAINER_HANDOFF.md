@@ -115,3 +115,24 @@ confirmed request IDs are consumed without posting again. 122 tests pass,
 including nine new parser/approval/receipt/replay regressions. No movement API
 is called; only actual returned location updates the UI. No migration or replay
 of existing private reply history is performed.
+
+## Same-resident mailbox guard — October 27, 2026
+
+`ProfileStore.assert_mail_history_safe` compares the selected namespace against
+other folders under residents whose settings identify the same handle. A
+receipt, cleared submission, or uncertain outgoing attempt must not become
+fresh actionable mail in a stale namespace. Initialization/polling checks all
+protected keys; delivery, checked-chat continuation, paste recovery, and sending
+check the selected key. Reads remain available for diagnosis. This guard does
+not change files, decrypt credentials, auto-merge histories, infer external
+delivery, or contact any service. Unreadable identified same-resident mail
+history fails closed. It is not a cross-process database or a guard for obsolete
+builds and third-party submission tools.
+
+`MailPipeline.poll` preserves entries already present but absent from seen,
+restoring only their seen IDs without refetching or replacing checkpoints.
+129 tests pass, including seven new stale-history regressions. Reconciliation
+still requires closing the app, backing up both copies, verifying actual
+submission/delivery, retaining uncertain repeat attempts in an audit, and
+preserving unrelated/unanswered records. No private reconciliation scripts,
+resident identifiers, correspondence, credentials, or backups may be published.

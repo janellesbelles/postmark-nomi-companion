@@ -154,6 +154,7 @@ class ResidentService:
         return self.state_path.exists()
 
     def initialize(self):
+        self.profiles.assert_mail_history_safe(self.profile_id)
         if not self.connected():
             raise RuntimeError("Complete this resident's Postmark handle and Nomi connection first.")
         return self.pipeline().initialize(
@@ -161,11 +162,13 @@ class ResidentService:
         )
 
     def poll(self):
+        self.profiles.assert_mail_history_safe(self.profile_id)
         if not self.connected():
             raise RuntimeError("Complete this resident's Nomi connection first.")
         return self.pipeline().poll()
 
     def confirm_delivery(self, key):
+        self.profiles.assert_mail_history_safe(self.profile_id, key)
         return self.pipeline().confirm_delivery(key)
 
     def entries(self):
@@ -203,19 +206,23 @@ class ResidentService:
         return self.pipeline().clear_submitted(key)
 
     def retry_letter(self, key, *, next_part=None, human_checked_chat=False):
+        self.profiles.assert_mail_history_safe(self.profile_id, key)
         return self.pipeline().continue_after_definite_failure(
             key, next_part=next_part, human_checked_chat=human_checked_chat
         )
 
     def resend_after_timeout(self, key, *, next_part=None):
+        self.profiles.assert_mail_history_safe(self.profile_id, key)
         return self.pipeline().resend_after_human_check(
             key, human_checked_chat=True, next_part=next_part
         )
 
     def recover_reply(self, key, text):
+        self.profiles.assert_mail_history_safe(self.profile_id, key)
         return self.pipeline().recover_reply(key, text)
 
     def send_approved(self, key, exact_text):
+        self.profiles.assert_mail_history_safe(self.profile_id, key)
         return github_mailer.submit_approved(
             self.pipeline(), key, exact_text,
             expected_github_account=self.config.get("github_account") or None,
