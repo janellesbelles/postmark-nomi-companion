@@ -109,6 +109,15 @@ If Postmark itself timed out while posting public speech, the public-send lock t
 
 Each listening session starts from the current room position: its initial snapshot establishes a baseline and is not forwarded to Nomi. Chatter spoken while the app was off is skipped. Timestamped voice IDs are remembered per resident to filter overlapping responses across restarts, and the saved cursor cannot move backward. Saved unfinished Nomi packets still follow the explicit recovery/resume flow above.
 
+Recovery is a continuation, not a fresh session. A Nomi timeout/rejection or pasted
+reply retains a durable `continue_from_cursor` flag on the live request. After
+the uncertain result is reconciled, Resume processes saved packets first and
+listens from the saved cursor, preserving new chatter spoken during recovery.
+It never resends the uncertain packet automatically. An explicit idle pause or
+close ends catch-up; the next fresh session skips history again. Unfinished work
+keeps its recovery flag across restarts. **Keep private & start fresh…** still
+abandons the exchange and starts at the present room boundary.
+
 **Keep private & start fresh…** offers another recovery choice: archive the entire unfinished private exchange, original uncertainty, unsent remainder, current proposal, and optionally a full pasted response of any length. This posts nothing, resends nothing, and leaves listening paused. A separate Start listening confirmation begins from the current room. Unknown public delivery still blocks this action.
 
 A documented Nomi rejection shows **Retry rejected request…**, which previews the exact saved packet before a human-approved retry. Unknown results and timeouts remain uncertain. Error names and advice are allowlisted so arbitrary service error bodies are not displayed. These cases follow the [Nomi chat endpoint documentation](https://api.nomi.ai/docs/reference/post-v1-nomis-id-chat/); older generic HTTP-error checkpoints are not automatically reclassified.

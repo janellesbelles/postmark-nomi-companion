@@ -67,3 +67,9 @@
 - Draw celestial bodies round at narrow widths, keep caption contrast independent of artwork, and improve light-theme text-selection contrast.
 - Display the full selected theme name under the selector and widen its dropdown for longer names.
 - Add three header/light-theme regressions, extending all-theme checks to eight palettes. All 108 tests pass on Windows/Python 3.13. No delivery or storage pipeline changes, additional dependencies, copied reference images, or private identifiers.
+# Recovery listening continuation — October 27, 2026
+
+- Do not baseline away new nearby chatter when resuming a reconciled timeout, pasted reply, rejected request, or saved packet queue.
+- Preserve continuation intent durably through reply consumption and restart. An explicit idle pause/close ends it; unfinished requests remain protected.
+- Retain fresh-session history skipping, explicit rejected-request approval/reconnect checks, and all unknown Nomi/public-send locks. Keep-private reset still starts fresh.
+- Add five mocked recovery/catch-up regressions. All 113 tests pass on Windows/Python 3.13; existing Tk teardown callback notices remain.

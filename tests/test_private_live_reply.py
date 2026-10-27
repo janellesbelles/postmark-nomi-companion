@@ -67,7 +67,8 @@ class PrivateReplyTests(unittest.TestCase):
         self.assertEqual(nomi.call_args.args[0],'remaining synthetic packet')
         self.assertEqual(nomi.call_count,1)
         speech.assert_not_called()
-        self.assertEqual(heard.call_count,2)  # baseline, then actual listening after queue
+        self.assertEqual(heard.call_count,2)  # two incremental polls; no recovery baseline
+        self.assertEqual(heard.call_args_list[0].kwargs['wait'],5)
         self.assertFalse(any(k=='relay_error' for k,v in tasks))
         self.assertEqual(self.service.live_state()['nomi']['status'],'resolved')
 

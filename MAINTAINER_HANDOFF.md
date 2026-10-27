@@ -81,3 +81,19 @@ data or external messages were used. Reference screenshots were not distributed;
 the header art contains no copied resident names, labels, avatars, or map data.
 Known Tk shutdown callback
 notices remain; the successful suite is not a claim of warning-free shutdown.
+# Recovery continuation — October 27, 2026
+
+The live request's `continue_from_cursor` marker survives a Nomi error, pasted
+reply, and `finish_live_reply`. A restart/resume with the marker or saved packets
+does not discard a baseline response. Explicit rejected-request retries still
+verify reconnection before unlocking the request, collecting rather than
+discarding any newly heard chatter. Explicit idle pause/close removes the marker;
+unfinished work retains it. Keep-private reset creates a fresh request without
+the marker. No cursor rewind or blind resend is used.
+
+113 mocked tests cover fresh baseline skipping, recovery catch-up exactly once,
+restart persistence, rejection reconnect failure, uncertainty locks, and manual
+reset/idle-pause behavior. As before, a crash between accepting new World chatter
+and saving its queue can lose that just-fetched batch; this change does not claim
+to solve that separate atomic-ingestion limitation. No production correspondence
+or identifiers belong in source, tests, or the distributable.

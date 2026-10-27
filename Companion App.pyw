@@ -268,6 +268,15 @@ class ResidentService:
         state["nomi"] = request
         mail_pipeline.AtomicState(self.event_state_path).write(state)
 
+    def end_live_continuation(self):
+        """An explicit idle pause/close ends catch-up; unfinished work stays safe."""
+        state = self.live_state()
+        request = state.get('nomi') or {}
+        if request.get('status') == 'resolved' and not request.get('packets'):
+            request.pop('continue_from_cursor', None)
+            state['nomi'] = request
+            mail_pipeline.AtomicState(self.event_state_path).write(state)
+
     def record_private_live_reply(self, request, reply):
         state = self.live_state()
         request_id = request.get('request_id')
@@ -317,7 +326,7 @@ class ResidentService:
         event_bridge.speech_from_nomi(text)
         if not text:
             raise ValueError("Paste SAY: followed by the public words, or PASS to stay quiet.")
-        request.update(status="reply_ready", reply=text, recovered_manually=True)
+        request.update(status="reply_ready", reply=text, recovered_manually=True, continue_from_cursor=True)
         request.pop("error", None)
         state["nomi"] = request
         mail_pipeline.AtomicState(self.event_state_path).write(state)
@@ -406,6 +415,7 @@ class LiveEventsWindow(tk.Toplevel):
 
     def toggle(self):
         if self.running:
+            self.service.end_live_continuation()
             self.stop_event.set()
             self.status.set("Pausing after the current request…")
             self.toggle_btn.configure(state="disabled")
@@ -475,7 +485,7 @@ class LiveEventsWindow(tk.Toplevel):
         self.paste_live_btn.configure(state="normal" if recoverable and not locked and not self.running else "disabled")
         if not self.running and not locked:
             self.toggle_btn.configure(text="Retry rejected request…" if request.get('status') == 'request_rejected' else
-                                      "Resume listening" if request.get("status") in {"queued", "reply_ready"} else "Start listening")
+                                      "Resume listening" if request.get("status") in {"queued", "reply_ready"} or request.get('continue_from_cursor') else "Start listening")
         lamplit_ui.sync_live(self)
 
     def keep_private_and_reset(self):
@@ -645,13 +655,24 @@ class LiveEventsWindow(tk.Toplevel):
             if (initial.get('nomi') or {}).get('status') == 'request_rejected':
                 if not retry_rejected or recovery_only:
                     raise RuntimeError('Nomi rejected the saved request. Explicit retry approval is required.')
-            if not recovery_only:
+            continuing = bool((initial.get('nomi') or {}).get('continue_from_cursor') or
+                              (initial.get('nomi') or {}).get('packets'))
+            if not recovery_only and not continuing:
                 # A new session starts at the present room boundary. Never feed
                 # the server's initial history snapshot back to Nomi.
                 baseline = event_bridge.listen(key, handle, since=cursor, wait=1)
                 self.service.accept_live_chatter(baseline, baseline=True)
                 cursor = self.service.event_cursor()
                 self.tasks.put(("status", "Listening from now. Earlier room history was skipped."))
+            elif not recovery_only:
+                if retry_rejected:
+                    # Preserve the explicit-retry reconnect gate, but collect
+                    # new chatter rather than discarding it as a baseline.
+                    reconnected = event_bridge.listen(key, handle, since=cursor, wait=1)
+                    fresh = self.service.accept_live_chatter(reconnected)
+                    cursor = self.service.event_cursor()
+                    pending.extend(event_bridge.other_voices(fresh, handle))
+                self.tasks.put(('status', 'Resuming from the saved listening cursor. New chatter during recovery is not skipped.'))
             while not self.stop_event.is_set():
                 saved = self.service.live_state()
                 if (saved.get("speech") or {}).get("status") == "unknown":
@@ -711,11 +732,11 @@ class LiveEventsWindow(tk.Toplevel):
                             self.tasks.put(('status', f'Sending saved packet: {len(packet)} characters; current Live limit: {self.service.live_input_limit}. Saved packets keep their original size.'))
                             reply, _reply_id = self.service._send_nomi(packet)
                         except nomi_client.RejectedNomiRequest as error:
-                            request.update(status='request_rejected', error=str(error))
+                            request.update(status='request_rejected', error=str(error), continue_from_cursor=True)
                             self.service.save_live_nomi(request)
                             raise
                         except Exception as error:
-                            request.update(status="response_unknown", error=str(error))
+                            request.update(status="response_unknown", error=str(error), continue_from_cursor=True)
                             self.service.save_live_nomi(request)
                             raise
                         request.update(status="reply_ready", reply=reply)
@@ -870,6 +891,7 @@ class LiveEventsWindow(tk.Toplevel):
         self.drain_after = self.after(100, self.drain)
 
     def close(self):
+        self.service.end_live_continuation()
         self.stop_event.set()
         if self.running:
             self.closing = True
@@ -1725,6 +1747,7 @@ class App(tk.Tk):
             return
         self.autosave()
         if self.events_window and self.events_window.winfo_exists():
+            self.events_window.service.end_live_continuation()
             self.events_window.stop_event.set()
             if self.events_window.running:
                 self.status.set("Waiting for the live session to stop before closing…")
