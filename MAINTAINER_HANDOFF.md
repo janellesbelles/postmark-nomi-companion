@@ -136,3 +136,32 @@ still requires closing the app, backing up both copies, verifying actual
 submission/delivery, retaining uncertain repeat attempts in an audit, and
 preserving unrelated/unanswered records. No private reconciliation scripts,
 resident identifiers, correspondence, credentials, or backups may be published.
+
+## Delivered-reply ledger — November 1, 2026
+
+Ship `mail_receipts.py` with the other modules. Its profile-independent private
+ledger is `<app-data>/mail-receipts.json`, version 1, with residents keyed by
+exact handle and replies keyed by the incoming letter's exact ID. It stores only
+verified outgoing ID/from/to/thread/delivered_at metadata and check timestamps.
+The verified live read is GET /api/mail/<handle>?box=outbox&limit=100&offset=N;
+the current API returns an array and honors pagination. Future unsupported shapes
+fail closed. The scan has a bounded page limit and rejects overlapping IDs,
+foreign sender identities, malformed timestamps, and explicitly incomplete data.
+
+ResidentService refreshes history before mail operations and reconciles cached
+positive receipts on local mailbox display. It does not contact Nomi on startup.
+Existing unanswered records are preserved unless an exact delivered reply edge
+matches their resident, letter ID, and correspondent. Reconciled entries keep
+delivery evidence, become completed/cleared, and lose their actionable drafts.
+An audit retains the previous status and any repeat Nomi checkpoints/uncertainty.
+Rejected records and submitting/needs_send_check public attempts stay unchanged.
+The legacy pr_open state is also used for verified delivered records without a
+known GitHub PR; delivery_receipt, not a fabricated PR URL, is their evidence.
+
+MailPipeline excludes answered IDs before fetching/offering bodies and checks
+header IDs for aliased filenames. Its Nomi boundary and github_mailer's outgoing
+boundary also reject answered IDs. Existing same-handle-folder checks remain.
+This does not provide an atomic lock against external concurrent submitters.
+Keep the root ledger in private backups; never package it. 148 tests pass with
+19 new delivery-history/guard regressions. Production verification used read-only
+outboxes and a backed-up local repair; it sent no correspondence or speech.

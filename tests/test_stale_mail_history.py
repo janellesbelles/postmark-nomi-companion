@@ -53,6 +53,16 @@ class StaleMailHistoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'prevent a duplicate'):
                 self.profiles.assert_mail_history_safe(self.ident,'letter')
 
+    def test_verified_api_delivery_satisfies_history_without_a_fabricated_pr(self):
+        self.active['letters']['letter'].update(status='pr_open',draft='',cleared_from_mailbox_at=123,
+            delivery_receipt={'source':'postmark_outbox','from':'resident-one','to':'neighbor',
+                              'thread':'letter','id':'delivered-reply','delivered_at':'2026-01-02T12:00:00Z'})
+        self.save()
+        self.profiles.assert_mail_history_safe(self.ident)
+        self.active['letters']['letter']['delivery_receipt']['thread']='different-letter'
+        self.save()
+        with self.assertRaises(ValueError): self.profiles.assert_mail_history_safe(self.ident)
+
     def test_matching_receipts_and_seen_baselines_are_safe(self):
         self.active=copy.deepcopy(self.finished)
         self.save()

@@ -19,6 +19,7 @@ import webbrowser
 import event_bridge
 import github_mailer
 import mail_pipeline
+import mail_receipts
 import nomi_client
 import desk_themes
 import lamplit_ui
@@ -148,13 +149,24 @@ class ResidentService:
             nomi_send=self._send_nomi,
             message_limit=self.input_limit,
             part_pause=float(self.config.get("part_pause", 4)),
+            answered_ids=mail_receipts.DeliveryHistory(self.profiles.root).receipts(self.handle),
         )
+
+    def refresh_mail_history(self, key=None):
+        history=mail_receipts.DeliveryHistory(self.profiles.root)
+        entry=self.pipeline().entries().get(key,{}) if key and self.state_path.exists() else {}
+        if key is None or not history.receipt_for(self.handle,key,entry):
+            history.refresh(self.handle)
+        history.reconcile(self.handle,self.state_path)
+        if key is not None and history.receipt_for(self.handle,key,entry):
+            raise ValueError('Postmark confirms this letter was already answered. Its receipt was restored and no message was sent.')
 
     def initialized(self):
         return self.state_path.exists()
 
     def initialize(self):
         self.profiles.assert_mail_history_safe(self.profile_id)
+        self.refresh_mail_history()
         if not self.connected():
             raise RuntimeError("Complete this resident's Postmark handle and Nomi connection first.")
         return self.pipeline().initialize(
@@ -163,17 +175,20 @@ class ResidentService:
 
     def poll(self):
         self.profiles.assert_mail_history_safe(self.profile_id)
+        self.refresh_mail_history()
         if not self.connected():
             raise RuntimeError("Complete this resident's Nomi connection first.")
         return self.pipeline().poll()
 
     def confirm_delivery(self, key):
         self.profiles.assert_mail_history_safe(self.profile_id, key)
+        self.refresh_mail_history(key)
         return self.pipeline().confirm_delivery(key)
 
     def entries(self):
         if not self.state_path.exists():
             return {}
+        mail_receipts.DeliveryHistory(self.profiles.root).reconcile(self.handle,self.state_path)
         pipeline = self.pipeline()
         state = pipeline.state.read()
         changed = False
@@ -207,22 +222,26 @@ class ResidentService:
 
     def retry_letter(self, key, *, next_part=None, human_checked_chat=False):
         self.profiles.assert_mail_history_safe(self.profile_id, key)
+        self.refresh_mail_history(key)
         return self.pipeline().continue_after_definite_failure(
             key, next_part=next_part, human_checked_chat=human_checked_chat
         )
 
     def resend_after_timeout(self, key, *, next_part=None):
         self.profiles.assert_mail_history_safe(self.profile_id, key)
+        self.refresh_mail_history(key)
         return self.pipeline().resend_after_human_check(
             key, human_checked_chat=True, next_part=next_part
         )
 
     def recover_reply(self, key, text):
         self.profiles.assert_mail_history_safe(self.profile_id, key)
+        self.refresh_mail_history(key)
         return self.pipeline().recover_reply(key, text)
 
     def send_approved(self, key, exact_text):
         self.profiles.assert_mail_history_safe(self.profile_id, key)
+        self.refresh_mail_history(key)
         return github_mailer.submit_approved(
             self.pipeline(), key, exact_text,
             expected_github_account=self.config.get("github_account") or None,

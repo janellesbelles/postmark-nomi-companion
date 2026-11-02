@@ -87,6 +87,10 @@ def create_mail_pr(entry, *, resident_handle, expected_github_account=None, run=
 
 def submit_approved(pipeline, key, exact_text, *, expected_github_account=None, create_pr=create_mail_pr):
     """Lock before submission and lock for inspection after any uncertain failure."""
+    existing=pipeline.state.read()['letters'][key]
+    answered=getattr(pipeline,'answered_ids',set())
+    if key in answered or (existing.get('fields') or {}).get('id') in answered:
+        raise ValueError('Postmark already records a delivered reply to this letter. No duplicate submission was made.')
     pipeline.save_draft(key, exact_text)
     state = pipeline.state.read()
     entry = state["letters"][key]

@@ -187,6 +187,7 @@ class MailPipeline:
         part_pause=4.0,
         discover=None,
         fetch=None,
+        answered_ids=None,
     ):
         self.resident_handle = resident_handle
         self.state = AtomicState(state_path)
@@ -195,6 +196,7 @@ class MailPipeline:
         self.part_pause = float(part_pause)
         self.discover = discover or (lambda: inbox_index(resident_handle))
         self.fetch = fetch or (lambda source: fetch_letter(source, resident_handle))
+        self.answered_ids = set(answered_ids or [])
 
     def initialize(self, *, import_existing=False):
         if self.state.exists():
@@ -232,6 +234,11 @@ class MailPipeline:
     def poll(self, *, discovered=None):
         state = self.state.read()
         for key, source in (self.discover() if discovered is None else discovered):
+            if key in self.answered_ids:
+                if key not in state['seen']:
+                    state['seen'].append(key)
+                    self.state.write(state)
+                continue
             if key in state["seen"]:
                 continue
             if key in state.get('letters', {}):
@@ -246,6 +253,10 @@ class MailPipeline:
             entry = state["letters"][key]
             try:
                 fields, body = self.fetch(source)
+                if fields.get('id') in self.answered_ids:
+                    entry.update(fields=fields,status='pr_open',draft='',cleared_from_mailbox_at=time.time(),known_answered=True)
+                    self.state.write(state)
+                    continue
                 messages = format_nomi_messages(fields, body, self.message_limit)
                 entry.update(
                     {
@@ -263,6 +274,7 @@ class MailPipeline:
         return [
             key for key, entry in state["letters"].items()
             if entry.get("status") == "awaiting_nomi_confirmation" and not entry.get("archived_at")
+            and key not in self.answered_ids and (entry.get('fields') or {}).get('id') not in self.answered_ids
         ]
 
     def confirm_delivery(self, key):
@@ -274,6 +286,8 @@ class MailPipeline:
 
     def _prepare_and_send(self, state, key, *, completed):
         entry = state["letters"][key]
+        if key in self.answered_ids or (entry.get('fields') or {}).get('id') in self.answered_ids:
+            raise ValueError('Postmark already records a delivered reply to this letter. It will not be sent to Nomi again.')
         if entry.get("archived_at"):
             raise ValueError("Restore archived mail before delivery or recovery.")
         try:

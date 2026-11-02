@@ -214,9 +214,16 @@ class ProfileStore:
                     continue
                 active = entries.get(letter_key) or {}
                 same_receipt = bool(historical.get('pr')) and active.get('pr') == historical['pr'] and active.get('status') == 'pr_open'
+                delivered = active.get('delivery_receipt') or {}
+                fields = active.get('fields') or {}
+                verified_delivery = (active.get('status') == 'pr_open' and bool(delivered.get('delivered_at'))
+                    and delivered.get('source') == 'postmark_outbox'
+                    and str(delivered.get('from') or '').casefold() == handle
+                    and delivered.get('thread') == (fields.get('id') or letter_key)
+                    and (not fields.get('from') or delivered.get('to') == fields['from']))
                 still_locked = not historical.get('pr') and active.get('status') in protected
                 seen_without_entry = letter_key in seen and letter_key not in entries
-                if letter_key not in seen or not (same_receipt or still_locked or seen_without_entry):
+                if letter_key not in seen or not (same_receipt or verified_delivery or still_locked or seen_without_entry):
                     raise ValueError('Another local copy of this resident records completed or uncertain outgoing mail that this profile does not preserve. Mail delivery/submission is blocked to prevent a duplicate. Back up and reconcile the resident mail histories; do not reset the inbox.')
 
     def read_settings(self, profile_id):

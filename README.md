@@ -196,6 +196,40 @@ letter with a fresh incoming item. This keeps held drafts, archives, confirmed
 chunks, receipts, and uncertainty locks intact. These safeguards apply to the
 updated app, not to a separately launched older build or external mail tools.
 
+## Delivered-reply ledger and old-mail protection
+
+The app keeps verified reply metadata in
+`%APPDATA%\PostmarkNomiCompanion\mail-receipts.json`, outside individual profile
+folders and keyed by exact resident handle and incoming letter ID. This is
+private app data: back it up, never publish it. It contains IDs and delivery
+metadata, not API keys or letter bodies. Keep it when updating or moving profiles.
+
+Opening a mailbox uses these saved positive receipts locally. If a stale mailbox
+shows a letter already answered, the app restores its delivered receipt, clears
+the actionable duplicate draft, and keeps that letter out of the active inbox.
+Only exact reply edges count: the delivered outgoing letter must be from this
+resident, name the incoming letter as its thread, and match the correspondent.
+Newer unanswered letters in the same conversation are not cleared.
+
+Before checking mail or attempting Nomi delivery/continuation, pasted-reply
+recovery, or GitHub submission, the app checks the public Postmark outbox at
+`GET /api/mail/<handle>?box=outbox&limit=100&offset=…`. All pages must be readable
+and valid. Failure pauses the operation without sending; a missing response is
+never interpreted as proof of no earlier reply. Saved positive receipts are
+not discarded when a later feed is empty. Opening alone does not fetch letter
+bodies, contact Nomi, or send public mail. Known answered IDs are excluded before
+old letter bodies are fetched or offered for Nomi approval.
+
+Reconciliation retains a local audit of a repeat Nomi attempt's uncertainty and
+checkpoints; it never retries that attempt. An uncertain outgoing public
+submission remains locked for inspection, even if an earlier reply is delivered.
+Private/rejected records are not automatically reinterpreted. The existing
+same-resident-folder guard remains an additional safety check.
+
+This is not a distributed send lock: another app or external tool could submit
+a new reply after a history check. Keep one companion instance open, preserve
+the entire app-data backup, and inspect any uncertain public submission.
+
 ## Backup
 
 Back up the entire `%APPDATA%\PostmarkNomiCompanion` directory while the app is closed. That is sufficient to preserve every resident profile and state file. The encrypted secrets remain tied to the originating Windows account; retain the original credentials separately in a password manager for machine migration.

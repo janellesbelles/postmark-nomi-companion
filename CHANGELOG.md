@@ -88,3 +88,12 @@
 - Preserve existing durable letter records when polling finds a missing seen marker, rather than overwriting those records as fresh mail.
 - Add seven mocked regressions covering delivery/submission gates, uncertain outgoing history, matching receipts, lost seen IDs, unrelated residents, unreadable same-resident history, and immutable letter checkpoints.
 - All 129 tests pass on Windows/Python 3.13. Known Tk teardown callback notices remain. Private resident repairs and backups are not part of this generic source or package.
+
+## Persistent delivery-history protection — November 1, 2026
+
+- Verify delivered replies through Postmark's read-only paginated outbox before mail operations, independently of duplicate local profile folders.
+- Keep private per-resident positive receipts in a root-level mail-receipts.json ledger that survives a resident-file rollback. Restore stale answered records from exact verified reply edges, not dates or conversation names.
+- Clear actionable duplicate drafts and retain repeat Nomi uncertainty/checkpoints in audit; preserve unanswered mail, rejected records, and uncertain outgoing locks.
+- Opening uses the local ledger only. Known answered letters are excluded from body fetching, Nomi approval/delivery, and the low-level GitHub submission boundary.
+- Fail closed on unavailable, malformed, incomplete, foreign, or overlapping history pages. No blind resend or false assertion that a merge means delivery.
+- Add 19 mocked regressions, including compatibility with older same-handle PR records; all 148 tests pass on Windows/Python 3.13. Existing Tk teardown callback notices remain.
